@@ -1,3 +1,147 @@
-<link href="main.css" rel="stylesheet">
-<div class="back"></div>
-<a href="heart.html"><div class="heart" ></div></a>
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24-годинний годинник</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 20px;
+        }
+
+        #clockFace {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            max-width: 90vw;
+            max-height: 90vw;
+        }
+
+        #backgroundImage {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .indicator-dot {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: radial-gradient(circle at 30% 30%, #fff9e6, #fbbf24, #f59e0b);
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 
+                0 0 25px rgba(251, 191, 36, 1),
+                0 0 50px rgba(251, 191, 36, 0.7),
+                0 0 75px rgba(251, 191, 36, 0.4),
+                inset 0 0 12px rgba(255, 255, 255, 0.6);
+            animation: pulse 2s ease-in-out infinite;
+            z-index: 10;
+            transition: all 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 
+                    0 0 25px rgba(251, 191, 36, 1),
+                    0 0 50px rgba(251, 191, 36, 0.7),
+                    0 0 75px rgba(251, 191, 36, 0.4),
+                    inset 0 0 12px rgba(255, 255, 255, 0.6);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.15);
+                box-shadow: 
+                    0 0 35px rgba(251, 191, 36, 1),
+                    0 0 70px rgba(251, 191, 36, 0.9),
+                    0 0 100px rgba(251, 191, 36, 0.6),
+                    inset 0 0 18px rgba(255, 255, 255, 0.8);
+            }
+        }
+
+        #debug {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="clockFace">
+        <img id="backgroundImage" src="https://raw.githubusercontent.com/iphilini/Site/main/1758652171529.jpg" alt="Циферблат">
+        <div class="indicator-dot" id="dot"></div>
+    </div>
+
+    <div id="debug"></div>
+
+    <script>
+        const clockFace = document.getElementById('clockFace');
+        const dot = document.getElementById('dot');
+        const debug = document.getElementById('debug');
+
+        function updateClock() {
+            // Отримуємо київський час
+            const now = new Date();
+            const kyivTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+            
+            const hours = kyivTime.getHours();
+            const minutes = kyivTime.getMinutes();
+            const seconds = kyivTime.getSeconds();
+
+            // Загальна кількість годин з хвилинами (наприклад, 15:30 = 15.5)
+            const totalHours = hours + (minutes / 60) + (seconds / 3600);
+
+            // КРОК 1: Скільки годин пройшло з 15:00?
+            // Якщо зараз 15:00 → різниця = 0
+            // Якщо зараз 16:00 → різниця = 1
+            // Якщо зараз 03:00 → різниця = -12 (або +12, тобто 12 годин вперед)
+            let hoursSince15 = totalHours - 15;
+            
+            // КРОК 2: Переводимо години в градуси (24 години = 360°)
+            // 1 година = 15°
+            let angleDegrees = hoursSince15 * 15;
+
+            // КРОК 3: Переводимо в радіани для Math.sin/cos
+            // В тригонометрії: 0° = право, 90° = вниз, 180° = ліво, 270° = вгору
+            // Нам треба: 0° = вгору
+            // Тому віднімаємо 90°, щоб зсунути систему координат
+            const angleRadians = (angleDegrees - 90) * (Math.PI / 180);
+
+            // КРОК 4: Розраховуємо позицію точки
+            // Центр циферблату
+            const centerX = clockFace.offsetWidth / 2;
+            const centerY = clockFace.offsetHeight / 2;
+            
+            // Радіус - відстань від центру (80% від половини ширини)
+            const radius = (clockFace.offsetWidth / 2) * 0.8;
+
+            // Координати точки
+            const x = centerX + radius * Math.cos(angleRadians);
+            const y = centerY + radius * Math.sin(angleRadians);
+
+            // КРОК 5: Розміщуємо точку
+            dot.style.left = `${x}px`;
+            dot.style.top = `${y}px`;
+
+            // Debug інформація (закоментовано)
+            // console.log(`Час: ${hours}:${minutes}, Кут: ${angleDegrees}°, X: ${x}, Y: ${y}`);
+        }
+
+        // Оновлюємо кожну секунду
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Оновлюємо при зміні розміру вікна
+        window.addEventListener('resize', updateClock);
+    </script>
+</body>
+</html>
