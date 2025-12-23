@@ -60,4 +60,37 @@ def recursive_position(t, level):
     offset = (
         math.cos(angle) * N +
         math.sin(angle) * B
-    )
+    ) * RADII[level]
+
+    return center + offset
+
+# =========================
+# ГЕНЕРАЦІЯ ТОЧОК
+# =========================
+
+points = []
+for i in range(POINTS):
+    t = i / (POINTS - 1)
+    points.append(recursive_position(t, LEVELS - 1))
+
+# =========================
+# СТВОРЕННЯ CURVE
+# =========================
+
+curve_data = bpy.data.curves.new("RecursiveSpiral", type='CURVE')
+curve_data.dimensions = '3D'
+curve_data.resolution_u = 2
+
+spline = curve_data.splines.new('POLY')
+spline.points.add(len(points) - 1)
+
+for i, p in enumerate(points):
+    spline.points[i].co = (*p, 1)
+
+obj = bpy.data.objects.new("RecursiveSpiral", curve_data)
+bpy.context.collection.objects.link(obj)
+
+curve_data.bevel_depth = 0.12
+curve_data.bevel_resolution = 6
+
+print("✔ Recursive hierarchical spiral created")
