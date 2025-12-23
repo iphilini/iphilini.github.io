@@ -1,0 +1,98 @@
+import bpy
+import math
+from mathutils import Vector
+
+# =====================
+# ПАРАМЕТРИ
+# =====================
+
+YEARS = 3
+DAYS_PER_YEAR = 20
+POINTS_PER_DAY = 20
+
+YEAR_RADIUS = 15
+YEAR_HEIGHT = 40
+DAY_RADIUS = 3
+
+TOTAL_POINTS = YEARS * DAYS_PER_YEAR * POINTS_PER_DAY
+
+# =====================
+# ДОПОМІЖНІ ФУНКЦІЇ
+# =====================
+
+def year_spiral(t):
+    """Центральна (річна) спіраль"""
+    angle = t * 2 * math.pi * YEARS
+    x = math.cos(angle) * YEAR_RADIUS
+    y = (t - 0.5) * YEAR_HEIGHT * YEARS
+    z = math.sin(angle) * YEAR_RADIUS
+    return Vector((x, y, z))
+
+def tangent_at(t, dt=0.0001):
+    """Дотичний вектор"""
+    p1 = year_spiral(t)
+    p2 = year_spiral(min(t + dt, 1.0))
+    return (p2 - p1).normalized()
+
+def frenet_frame(t):
+    """Фрейм Френе: tangent, normal, binormal"""
+    tangent = tangent_at(t)
+    up = Vector((0, 1, 0))
+    
+    normal = tangent.cross(up)
+    if normal.length == 0:
+        normal = Vector((1, 0, 0))
+    normal.normalize()
+    
+    binormal = tangent.cross(normal).normalized()
+    return normal, binormal
+
+# =====================
+# ГЕНЕРАЦІЯ ТОЧОК
+# =====================
+
+points = []
+
+for i in range(TOTAL_POINTS):
+    t = i / (TOTAL_POINTS - 1)
+    
+    # Центр на річній спіралі
+    center = year_spiral(t)
+    
+    # Локальний базис
+    normal, binormal = frenet_frame(t)
+    
+    # Денна спіраль
+    day_angle = t * YEARS * DAYS_PER_YEAR * 2 * math.pi
+    offset = (
+        normal * math.cos(day_angle) * DAY_RADIUS +
+        binormal * math.sin(day_angle) * DAY_RADIUS
+    )
+    
+    points.append(center + offset)
+
+# =====================
+# СТВОРЕННЯ CURVE
+# =====================
+
+curve_data = bpy.data.curves.new("TimeSpiral", type='CURVE')
+curve_data.dimensions = '3D'
+curve_data.resolution_u = 2
+
+polyline = curve_data.splines.new('POLY')
+polyline.points.add(len(points) - 1)
+
+for i, p in enumerate(points):
+    polyline.points[i].co = (p.x, p.y, p.z, 1)
+
+curve_obj = bpy.data.objects.new("TimeSpiral", curve_data)
+bpy.context.collection.objects.link(curve_obj)
+
+# =====================
+# ВИГЛЯД
+# =====================
+
+curve_data.bevel_depth = 0.15
+curve_data.bevel_resolution = 4
+
+print("✔ Time Spiral created")
