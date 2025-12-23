@@ -1,0 +1,63 @@
+import bpy
+import math
+from mathutils import Vector
+
+# =========================
+# ПАРАМЕТРИ ІЄРАРХІЇ
+# =========================
+
+LEVELS = 3                 # ← рівень ієрархії
+POINTS = 3000
+
+RADII = [12, 3.5, 0.9]     # масштаб кожного рівня
+FREQS = [1, 18, 320]       # частота кожного рівня
+HEIGHT = 40
+
+# =========================
+# БАЗОВА СПІРАЛЬ
+# =========================
+
+def base_spiral(t):
+    angle = 2 * math.pi * FREQS[0] * t
+    return Vector((
+        math.cos(angle) * RADII[0],
+        (t - 0.5) * HEIGHT,
+        math.sin(angle) * RADII[0]
+    ))
+
+# =========================
+# ЧИСЕЛЬНА ДОТИЧНА
+# =========================
+
+def tangent(func, t, dt=0.0001):
+    return (func(min(t + dt, 1)) - func(t)).normalized()
+
+def frame(func, t):
+    T = tangent(func, t)
+    up = Vector((0, 1, 0))
+    N = T.cross(up)
+    if N.length < 1e-6:
+        N = Vector((1, 0, 0))
+    N.normalize()
+    B = T.cross(N).normalized()
+    return N, B
+
+# =========================
+# РЕКУРСИВНА ПОЗИЦІЯ
+# =========================
+
+def recursive_position(t, level):
+    if level == 0:
+        return base_spiral(t)
+
+    def prev_curve(u):
+        return recursive_position(u, level - 1)
+
+    center = prev_curve(t)
+    N, B = frame(prev_curve, t)
+
+    angle = 2 * math.pi * FREQS[level] * t
+    offset = (
+        math.cos(angle) * N +
+        math.sin(angle) * B
+    )
