@@ -1,0 +1,52 @@
+import bpy
+import math
+from mathutils import Vector
+
+# --------------------
+# ПАРАМЕТРИ
+# --------------------
+
+POINTS = 2000
+R = 5.0
+H = 0.02
+
+WAVE_AMPLITUDE = 0.3
+WAVE_FREQUENCY = 5.0  # ← ЦЕ НАШ "ЗУМ"
+
+# --------------------
+# ОЧИСТКА
+# --------------------
+
+bpy.ops.object.select_all(action='SELECT')
+bpy.ops.object.delete(use_global=False)
+
+# --------------------
+# СПІРАЛЬ
+# --------------------
+
+curve = bpy.data.curves.new("Spiral", type='CURVE')
+curve.dimensions = '3D'
+spline = curve.splines.new('POLY')
+
+points = []
+
+for i in range(POINTS):
+    t = i * 0.05
+
+    r = R * (1 + WAVE_AMPLITUDE * math.cos(WAVE_FREQUENCY * t))
+
+    x = r * math.cos(t)
+    z = r * math.sin(t)
+    y = H * t
+
+    points.append(Vector((x, y, z)))
+
+spline.points.add(len(points) - 1)
+for i, p in enumerate(points):
+    spline.points[i].co = (p.x, p.y, p.z, 1)
+
+curve.bevel_depth = 0.08
+curve.bevel_resolution = 4
+
+obj = bpy.data.objects.new("Spiral", curve)
+bpy.context.collection.objects.link(obj)
