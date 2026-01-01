@@ -1,0 +1,154 @@
+import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+
+const TimeWarpArtifact = () => {
+  const mountRef = useRef(null);
+  const [time, setTime] = useState(0.5); // Позиція в часі (0..1)
+  const [zoom, setZoom] = useState(0.2); // Глибина занурення (0..1)
+
+  useEffect(() => {
+    const container = mountRef.current;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020205);
+    scene.fog = new THREE.Fog(0x020205, 10, 100);
+
+    const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    // Світловий "ліхтар" пілота
+    const pilotLight = new THREE.PointLight(0x00ffff, 2, 50);
+    scene.add(pilotLight);
+    const ambient = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambient);
+
+    // Параметри спіралей
+    const config = {
+      year: { turns: 3, radius: 40, height: 200, color: 0x00ff44 },
+      month: { turns: 12, radius: 10, color: 0x0088ff },
+      day: { turns: 30, radius: 3, color: 0xff3300 },
+      hour: { turns: 24, radius: 0.8, color: 0xffff00 }
+    };
+
+    // ГЕОМЕТРІЯ (Динамічна лінія)
+    const geometry = new THREE.BufferGeometry();
+    const material = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true });
+    const line = new THREE.Line(geometry, material);
+    scene.add(line);
+
+    const getPositionAt = (t) => {
+      // S3 - Рік
+      const a3 = t * Math.PI * 2 * config.year.turns;
+      let p = new THREE.Vector3(
+        Math.cos(a3) * config.year.radius,
+        (t - 0.5) * config.year.height,
+        Math.sin(a3) * config.year.radius
+      );
+
+      // S2 - Місяць (Обмотка навколо року)
+      const a2 = t * Math.PI * 2 * config.year.turns * config.month.turns;
+      p.x += Math.cos(a2) * config.month.radius;
+      p.z += Math.sin(a2) * config.month.radius;
+
+      // S1 - День (Обмотка навколо місяця)
+      if (zoom > 0.3) {
+        const a1 = t * Math.PI * 2 * config.year.turns * config.month.turns * config.day.turns;
+        p.x += Math.cos(a1) * config.day.radius;
+        p.z += Math.sin(a1) * config.day.radius;
+      }
+
+      // S0 - Година (Обмотка навколо дня)
+      if (zoom > 0.7) {
+        const a0 = t * Math.PI * 2 * config.year.turns * config.month.turns * config.day.turns * config.hour.turns;
+        p.x += Math.cos(a0) * config.hour.radius;
+        p.z += Math.sin(a0) * config.hour.radius;
+      }
+      return p;
+    };
+
+    const animate = () => {
+      requestAnimationFrame(animate);
+
+      const segments = 2000;
+      // Вікно видимості скорочується при зумі
+      const viewWindow = Math.pow(0.1, zoom * 3); 
+      const tStart = time - viewWindow / 2;
+      
+      const positions = new Float32Array(segments * 3);
+      const colors = new Float32Array(segments * 3);
+      const colorObj = new THREE.Color();
+
+      for (let i = 0; i < segments; i++) {
+        const t = tStart + (viewWindow * (i / segments));
+        const p = getPositionAt(t);
+        
+        positions[i * 3] = p.x;
+        positions[i * 3 + 1] = p.y;
+        positions[i * 3 + 2] = p.z;
+
+        // Колірна палітра залежить від рівня занурення
+        colorObj.setHSL((t * 10) % 1, 0.8, 0.5);
+        colors[i * 3] = colorObj.r;
+        colors[i * 3 + 1] = colorObj.g;
+        colors[i * 3 + 2] = colorObj.b;
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geometry.attributes.position.needsUpdate = true;
+
+      // КАМЕРА-ПІЛОТ
+      const midT = time;
+      const headPos = getPositionAt(midT);
+      const forwardPos = getPositionAt(midT + 0.0001);
+      
+      const tangent = new THREE.Vector3().subVectors(forwardPos, headPos).normalize();
+      
+      // Ставимо камеру трохи позаду і вище по курсу
+      const camPos = headPos.clone().add(tangent.clone().multiplyScalar(-10 * (1 - zoom) - 2));
+      camera.position.lerp(camPos, 0.1);
+      camera.lookAt(headPos.clone().add(tangent.clone().multiplyScalar(20)));
+      
+      pilotLight.position.copy(camera.position);
+
+      renderer.render(scene, camera);
+    };
+
+    animate();
+
+    return () => {
+      renderer.dispose();
+      container.innerHTML = "";
+    };
+  }, [time, zoom]);
+
+  return (
+    <div style={{ width: '100%', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      
+      <div style={{
+        position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
+        background: 'rgba(0,0,0,0.8)', padding: '20px', borderRadius: '20px',
+        color: 'white', display: 'flex', gap: '20px', backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.1)', width: '80%', maxWidth: '600px'
+      }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <label style={{ fontSize: '10px', opacity: 0.6 }}>ПОДОРОЖ У ЧАСІ (РІК)</label>
+          <input type="range" min="0" max="1" step="0.0001" value={time} 
+                 onChange={(e) => setTime(parseFloat(e.target.value))} 
+                 style={{ width: '100%', cursor: 'pointer' }} />
+        </div>
+        
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <label style={{ fontSize: '10px', opacity: 0.6 }}>ГЛИБИНА (МАСШТАБ)</label>
+          <input type="range" min="0" max="1" step="0.01" value={zoom} 
+                 onChange={(e) => setZoom(parseFloat(e.target.value))} 
+                 style={{ width: '100%', cursor: 'pointer' }} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TimeWarpArtifact;
