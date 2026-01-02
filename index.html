@@ -3,145 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>24-годинний годинник</title>
+    <title>Spiral Calendar 3D</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            padding: 20px;
-        }
-
-        #clockFace {
-            position: relative;
-            width: 600px;
-            height: 600px;
-            max-width: 90vw;
-            max-height: 90vw;
-        }
-
-        #backgroundImage {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .indicator-dot {
-            position: absolute;
-            width: 18px;
-            height: 18px;
-            background: radial-gradient(circle at 30% 30%, #fff9e6, #fbbf24, #f59e0b);
-            border: 3px solid #ffffff;
-            border-radius: 50%;
-            box-shadow: 
-                0 0 25px rgba(251, 191, 36, 1),
-                0 0 50px rgba(251, 191, 36, 0.7),
-                0 0 75px rgba(251, 191, 36, 0.4),
-                inset 0 0 12px rgba(255, 255, 255, 0.6);
-            animation: pulse 2s ease-in-out infinite;
-            z-index: 10;
-            transition: all 0.5s ease;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: translate(-50%, -50%) scale(1);
-                box-shadow: 
-                    0 0 25px rgba(251, 191, 36, 1),
-                    0 0 50px rgba(251, 191, 36, 0.7),
-                    0 0 75px rgba(251, 191, 36, 0.4),
-                    inset 0 0 12px rgba(255, 255, 255, 0.6);
-            }
-            50% {
-                transform: translate(-50%, -50%) scale(1.15);
-                box-shadow: 
-                    0 0 35px rgba(251, 191, 36, 1),
-                    0 0 70px rgba(251, 191, 36, 0.9),
-                    0 0 100px rgba(251, 191, 36, 0.6),
-                    inset 0 0 18px rgba(255, 255, 255, 0.8);
-            }
-        }
-
-        #debug {
-            display: none;
-        }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        #root { height: 100vh; width: 100vw; }
+        canvas { touch-action: none; }
     </style>
 </head>
 <body>
-    <div id="clockFace">
-        <img id="backgroundImage" src="https://raw.githubusercontent.com/iphilini/Site/main/1758652171529.jpg" alt="Циферблат">
-        <div class="indicator-dot" id="dot"></div>
-    </div>
+    <div id="root"></div>
 
-    <div id="debug"></div>
+    <script type="text/babel">
+        const { useState, useRef, useMemo, useEffect } = React;
 
-    <script>
-        const clockFace = document.getElementById('clockFace');
-        const dot = document.getElementById('dot');
-        const debug = document.getElementById('debug');
+        // Імітація компонентів react-three-fiber для роботи через CDN (спрощений підхід)
+        // Для повноцінного 3D в одному файлі ми використаємо чистий Three.js всередині React
+        
+        const SpiralCalendar = () => {
+            const [events, setEvents] = useState([]);
+            const [view, setView] = useState('3d');
+            const canvasRef = useRef();
 
-        function updateClock() {
-            // Отримуємо київський час
-            const now = new Date();
-            const kyivTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
-            
-            const hours = kyivTime.getHours();
-            const minutes = kyivTime.getMinutes();
-            const seconds = kyivTime.getSeconds();
+            // Логіка 3D сцени
+            useEffect(() => {
+                if (view !== '3d') return;
 
-            // Загальна кількість годин з хвилинами (наприклад, 15:30 = 15.5)
-            const totalHours = hours + (minutes / 60) + (seconds / 3600);
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color('#f8fafc');
+                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                canvasRef.current.appendChild(renderer.domElement);
 
-            // КРОК 1: Скільки годин пройшло з 15:00?
-            // Якщо зараз 15:00 → різниця = 0
-            // Якщо зараз 16:00 → різниця = 1
-            // Якщо зараз 03:00 → різниця = -12 (або +12, тобто 12 годин вперед)
-            let hoursSince15 = totalHours - 15;
-            
-            // КРОК 2: Переводимо години в градуси (24 години = 360°)
-            // 1 година = 15°
-            let angleDegrees = hoursSince15 * 15;
+                // Створення спіралі
+                const points = [];
+                for (let t = 0; t < Math.PI * 4; t += 0.1) {
+                    const x = Math.cos(t) * (t * 0.5);
+                    const y = t * 0.5;
+                    const z = Math.sin(t) * (t * 0.5);
+                    points.push(new THREE.Vector3(x, y, z));
+                }
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color: 0x3b82f6, linewidth: 2 });
+                const spiral = new THREE.Line(geometry, material);
+                scene.add(spiral);
 
-            // КРОК 3: Переводимо в радіани для Math.sin/cos
-            // В тригонометрії: 0° = право, 90° = вниз, 180° = ліво, 270° = вгору
-            // Нам треба: 0° = вгору
-            // Тому віднімаємо 90°, щоб зсунути систему координат
-            const angleRadians = (angleDegrees - 90) * (Math.PI / 180);
+                camera.position.z = 10;
+                camera.position.y = 5;
 
-            // КРОК 4: Розраховуємо позицію точки
-            // Центр циферблату
-            const centerX = clockFace.offsetWidth / 2;
-            const centerY = clockFace.offsetHeight / 2;
-            
-            // Радіус - відстань від центру (80% від половини ширини)
-            const radius = (clockFace.offsetWidth / 2) * 0.8;
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    spiral.rotation.y += 0.005;
+                    renderer.render(scene, camera);
+                };
+                animate();
 
-            // Координати точки
-            const x = centerX + radius * Math.cos(angleRadians);
-            const y = centerY + radius * Math.sin(angleRadians);
+                return () => {
+                    canvasRef.current && canvasRef.current.removeChild(renderer.domElement);
+                };
+            }, [view]);
 
-            // КРОК 5: Розміщуємо точку
-            dot.style.left = `${x}px`;
-            dot.style.top = `${y}px`;
+            return (
+                <div className="relative h-screen w-screen bg-slate-50 overflow-hidden flex flex-col">
+                    {/* Header */}
+                    <header className="bg-white border-b px-6 py-3 flex items-center justify-between z-10">
+                        <div className="flex items-center gap-4">
+                            <h1 className="text-xl font-semibold text-slate-800">Спіральний Календар</h1>
+                            <button 
+                                onClick={() => setView(view === '3d' ? 'list' : '3d')}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+                            >
+                                {view === '3d' ? 'Список' : '3D Вигляд'}
+                            </button>
+                        </div>
+                    </header>
 
-            // Debug інформація (закоментовано)
-            // console.log(`Час: ${hours}:${minutes}, Кут: ${angleDegrees}°, X: ${x}, Y: ${y}`);
-        }
+                    <main className="flex-1 relative flex">
+                        {/* 3D Canvas Area */}
+                        <div className={`flex-1 ${view === '3d' ? 'block' : 'hidden'}`} ref={canvasRef}></div>
 
-        // Оновлюємо кожну секунду
-        setInterval(updateClock, 1000);
-        updateClock();
+                        {/* List View Area */}
+                        {view === 'list' && (
+                            <div className="flex-1 p-8 overflow-y-auto">
+                                <h2 className="text-2xl font-bold mb-4">Розклад на сьогодні</h2>
+                                {events.length === 0 ? (
+                                    <p className="text-slate-500">Подій поки немає</p>
+                                ) : (
+                                    events.map((ev, i) => (
+                                        <div key={i} className="p-4 bg-white shadow rounded-lg mb-2 border-l-4 border-blue-500">
+                                            {ev.title} ({ev.time})
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
 
-        // Оновлюємо при зміні розміру вікна
-        window.addEventListener('resize', updateClock);
+                        {/* Sidebar */}
+                        <aside className="w-80 bg-white border-l p-6 shadow-xl z-10">
+                            <h3 className="text-lg font-bold mb-4">Додати подію</h3>
+                            <input type="text" placeholder="Назва події" className="w-full mb-3 p-2 border rounded" id="evTitle" />
+                            <input type="time" className="w-full mb-3 p-2 border rounded" id="evTime" />
+                            <button 
+                                onClick={() => {
+                                    const title = document.getElementById('evTitle').value;
+                                    const time = document.getElementById('evTime').value;
+                                    if(title) setEvents([...events, {title, time}]);
+                                }}
+                                className="w-full py-2 bg-green-600 text-white rounded-lg"
+                            >
+                                Додати
+                            </button>
+                        </aside>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<SpiralCalendar />);
     </script>
 </body>
 </html>
