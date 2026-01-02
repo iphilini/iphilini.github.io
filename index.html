@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Спіральний Календар 3D</title>
+    <title>Spiral Calendar Pro 3D</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
-        #root { width: 100vw; height: 100vh; }
-        /* Стилізація шрифтів під Google Sans */
-        * { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f8f9fa; }
+        #root { height: 100vh; }
+        .control-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
     </style>
 </head>
 <body>
@@ -24,174 +24,156 @@
 
         const SpiralCalendar = () => {
             const mountRef = useRef(null);
-            const [selectedDate, setSelectedDate] = useState(new Date());
-            const [selectedHour, setSelectedHour] = useState(null);
-            const [events, setEvents] = useState([]);
-            const [showAddEvent, setShowAddEvent] = useState(false);
-            const [view3D, setView3D] = useState(true);
-            const [newEvent, setNewEvent] = useState({ title: '', hour: 9, duration: 1, color: '#4285f4' });
+            const [view, setView] = useState('3d');
+            
+            // Параметри спіралі
+            const [radius, setRadius] = useState(8);      // Амплітуда
+            const [frequency, setFrequency] = useState(1); // Частота (витків)
+            const [height, setHeight] = useState(15);     // Висота
 
-            // --- 3D Логіка ---
+            // --- 3D Сцена ---
             useEffect(() => {
-                if (!view3D || !mountRef.current) return;
+                if (view !== '3d' || !mountRef.current) return;
 
                 const container = mountRef.current;
                 const scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xf8f9fa);
 
                 const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-                camera.position.set(0, 12, 28);
-                camera.lookAt(0, 0, 0);
+                camera.position.set(15, 15, 25);
 
                 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
                 renderer.setSize(container.clientWidth, container.clientHeight);
                 container.appendChild(renderer.domElement);
 
-                // Освітлення
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-                scene.add(ambientLight);
-                const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-                dirLight.position.set(10, 20, 10);
-                scene.add(dirLight);
+                // Додаємо OrbitControls для обертання та зуму
+                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
 
-                const radius = 8;
-                const heightPerTurn = 12;
-                const hours = 24;
-
-                const getSpiralPos = (h) => {
-                    const t = h / hours;
-                    const angle = t * 2 * Math.PI;
-                    return new THREE.Vector3(Math.cos(angle) * radius, (t - 0.5) * heightPerTurn, Math.sin(angle) * radius);
+                // Функція розрахунку кольору градієнта (Ніч -> Ранок -> День -> Вечір)
+                const getHourColor = (h) => {
+                    if (h >= 5 && h < 9) return new THREE.Color('#ffcc33'); // Світанок
+                    if (h >= 9 && h < 17) return new THREE.Color('#4285f4'); // День
+                    if (h >= 17 && h < 21) return new THREE.Color('#f4b400'); // Захід
+                    return new THREE.Color('#202124'); // Ніч
                 };
 
-                // Малювання основної спіралі
+                const getSpiralPos = (h) => {
+                    const t = h / 24;
+                    const angle = t * 2 * Math.PI * frequency;
+                    return new THREE.Vector3(
+                        Math.cos(angle) * radius,
+                        (t - 0.5) * height,
+                        Math.sin(angle) * radius
+                    );
+                };
+
+                // Малювання спіралі (лінія)
                 const points = [];
                 for(let i=0; i<=240; i++) points.push(getSpiralPos(i/10));
-                const spiralGeom = new THREE.BufferGeometry().setFromPoints(points);
-                const spiralMat = new THREE.LineBasicMaterial({ color: 0xe8eaed });
-                scene.add(new THREE.Line(spiralGeom, spiralMat));
+                const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xdadce0, transparent: true, opacity: 0.5 });
+                const spiralLine = new THREE.Line(lineGeom, lineMat);
+                scene.add(spiralLine);
 
-                // Маркери годин
-                const hourSpheres = [];
+                // Точки годин з градієнтом
+                const dotsGroup = new THREE.Group();
                 for(let h=0; h<24; h++) {
                     const pos = getSpiralPos(h);
-                    let color = 0x5f6368; // ніч
-                    if (h >= 6 && h < 9) color = 0xfbbc04; // ранок
-                    else if (h >= 9 && h < 17) color = 0x4285f4; // день
-                    else if (h >= 17 && h < 21) color = 0xf4b400; // вечір
-
-                    const geom = new THREE.SphereGeometry(0.4, 16, 16);
-                    const mat = new THREE.MeshStandardMaterial({ color });
-                    const sphere = new THREE.Mesh(geom, mat);
-                    sphere.position.copy(pos);
-                    sphere.userData = { hour: h };
-                    scene.add(sphere);
-                    hourSpheres.push(sphere);
+                    const color = getHourColor(h);
+                    const dotGeom = new THREE.SphereGeometry(0.25, 16, 16);
+                    const dotMat = new THREE.MeshBasicMaterial({ color });
+                    const dot = new THREE.Mesh(dotGeom, dotMat);
+                    dot.position.copy(pos);
+                    dotsGroup.add(dot);
                 }
+                scene.add(dotsGroup);
 
-                // Поточний час (червона сфера)
+                // Поточний час (акцентна точка)
                 const now = new Date();
                 const curH = now.getHours() + now.getMinutes()/60;
                 const curPos = getSpiralPos(curH);
-                const curGeom = new THREE.SphereGeometry(0.6, 32, 32);
-                const curMat = new THREE.MeshStandardMaterial({ color: 0xea4335, emissive: 0xea4335, emissiveIntensity: 0.5 });
+                const curGeom = new THREE.SphereGeometry(0.5, 32, 32);
+                const curMat = new THREE.MeshBasicMaterial({ color: 0xea4335 });
                 const curMarker = new THREE.Mesh(curGeom, curMat);
                 curMarker.position.copy(curPos);
                 scene.add(curMarker);
 
-                // Рендеринг та анімація
-                let animationId;
                 const animate = () => {
-                    animationId = requestAnimationFrame(animate);
-                    const pulse = Math.sin(Date.now() * 0.002) * 0.1 + 1;
-                    curMarker.scale.set(pulse, pulse, pulse);
+                    requestAnimationFrame(animate);
+                    controls.update();
+                    // Легка пульсація поточного часу
+                    const s = 1 + Math.sin(Date.now() * 0.005) * 0.2;
+                    curMarker.scale.set(s, s, s);
                     renderer.render(scene, camera);
                 };
                 animate();
 
-                // Обробка кліку
-                const raycaster = new THREE.Raycaster();
-                const mouse = new THREE.Vector2();
-                const onClick = (e) => {
-                    const rect = renderer.domElement.getBoundingClientRect();
-                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                    raycaster.setFromCamera(mouse, camera);
-                    const intersects = raycaster.intersectObjects(hourSpheres);
-                    if (intersects.length > 0) setSelectedHour(intersects[0].object.userData.hour);
+                const handleResize = () => {
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
                 };
-                renderer.domElement.addEventListener('click', onClick);
+                window.addEventListener('resize', handleResize);
 
                 return () => {
-                    cancelAnimationFrame(animationId);
+                    window.removeEventListener('resize', handleResize);
                     renderer.dispose();
                     if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
                 };
-            }, [view3D]);
+            }, [view, radius, frequency, height]);
 
-            // --- UI Компоненти ---
             return (
-                <div style={{ display: 'flex', height: '100vh', background: '#fff' }}>
-                    {/* Бічна панель */}
-                    <div style={{ width: '320px', borderRight: '1px solid #e8eaed', padding: '20px', display: 'flex', flexDirection: 'column' }}>
-                        <h2 style={{ fontSize: '20px', color: '#1967d2', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                             Спіральний Календар
-                        </h2>
+                <div className="flex h-full w-full">
+                    {/* Ліва панель керування */}
+                    <div className="w-80 border-r bg-white p-6 flex flex-col gap-6 shadow-lg z-10">
+                        <h1 className="text-xl font-bold text-blue-600">Spiral Calendar</h1>
                         
-                        <div style={{ margin: '20px 0', textAlign: 'center', fontWeight: 'bold' }}>
-                            {selectedDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}
+                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                            <button onClick={() => setView('3d')} className={`flex-1 py-2 rounded ${view === '3d' ? 'bg-white shadow' : ''}`}>3D Сцена</button>
+                            <button onClick={() => setView('list')} className={`flex-1 py-2 rounded ${view === 'list' ? 'bg-white shadow' : ''}`}>Список</button>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '5px', background: '#f1f3f4', padding: '4px', borderRadius: '8px', marginBottom: '20px' }}>
-                            <button onClick={() => setView3D(true)} style={{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', background: view3D ? '#fff' : 'transparent', cursor: 'pointer' }}>3D</button>
-                            <button onClick={() => setView3D(false)} style={{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', background: !view3D ? '#fff' : 'transparent', cursor: 'pointer' }}>Список</button>
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-700">Налаштування спіралі</h3>
+                            
+                            <label className="block text-sm">
+                                Амплітуда (Радіус): {radius}
+                                <input type="range" min="2" max="15" step="0.5" value={radius} 
+                                    onChange={(e) => setRadius(parseFloat(e.target.value))} className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer mt-2" />
+                            </label>
+
+                            <label className="block text-sm">
+                                Частота (Витки): {frequency}
+                                <input type="range" min="0.5" max="3" step="0.1" value={frequency} 
+                                    onChange={(e) => setFrequency(parseFloat(e.target.value))} className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer mt-2" />
+                            </label>
+
+                            <label className="block text-sm">
+                                Висота: {height}
+                                <input type="range" min="5" max="30" step="1" value={height} 
+                                    onChange={(e) => setHeight(parseFloat(e.target.value))} className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer mt-2" />
+                            </label>
                         </div>
 
-                        <button onClick={() => setShowAddEvent(true)} style={{ width: '100%', padding: '12px', background: '#1967d2', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px' }}>
-                            + Додати подію
-                        </button>
-
-                        <div style={{ flex: 1, overflowY: 'auto' }}>
-                            <h4 style={{ color: '#5f6368', fontSize: '12px', textTransform: 'uppercase' }}>Події дня</h4>
-                            {events.length === 0 && <p style={{ color: '#9aa0a6', fontSize: '14px' }}>Подій немає</p>}
-                            {events.map((ev, i) => (
-                                <div key={i} style={{ padding: '10px', borderLeft: `4px solid ${ev.color}`, background: '#f8f9fa', marginBottom: '8px', borderRadius: '4px', position: 'relative' }}>
-                                    <div style={{ fontWeight: '500' }}>{ev.title}</div>
-                                    <div style={{ fontSize: '12px', color: '#5f6368' }}>{ev.hour}:00 ({ev.duration} год.)</div>
-                                </div>
-                            ))}
+                        <div className="mt-auto text-xs text-gray-400">
+                            Використовуйте мишу для обертання та колесо для зуму
                         </div>
                     </div>
 
-                    {/* Головна область */}
-                    <div style={{ flex: 1, position: 'relative' }}>
-                        {view3D ? (
-                            <div ref={mountRef} style={{ width: '100%', height: '100%' }}></div>
+                    {/* Основний перегляд */}
+                    <div className="flex-1 relative">
+                        {view === '3d' ? (
+                            <div ref={mountRef} className="w-full h-full cursor-move"></div>
                         ) : (
-                            <div style={{ padding: '40px', overflowY: 'auto', height: '100%' }}>
-                                {[...Array(24)].map((_, h) => (
-                                    <div key={h} style={{ display: 'flex', padding: '15px', borderBottom: '1px solid #eee' }}>
-                                        <div style={{ width: '50px', color: '#5f6368' }}>{h}:00</div>
-                                        <div style={{ flex: 1 }}>
-                                            {events.filter(e => e.hour === h).map((e, i) => (
-                                                <div key={i} style={{ background: e.color, color: '#fff', padding: '5px 10px', borderRadius: '4px' }}>{e.title}</div>
-                                            ))}
-                                        </div>
+                            <div className="p-10 overflow-y-auto h-full bg-white">
+                                <h2 className="text-2xl font-bold mb-6">Погодинний план</h2>
+                                {[...Array(24)].map((_, i) => (
+                                    <div key={i} className="flex border-b py-4 items-center">
+                                        <span className="w-20 font-mono text-gray-500">{i}:00</span>
+                                        <div className="flex-1 h-8 bg-gray-50 rounded"></div>
                                     </div>
                                 ))}
-                            </div>
-                        )}
-                        
-                        {/* Модалка додавання */}
-                        {showAddEvent && (
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', zIndex: 100 }}>
-                                <h3>Нова подія</h3>
-                                <input type="text" placeholder="Назва" style={{ width: '100%', marginBottom: '10px', padding: '8px' }} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
-                                <input type="number" placeholder="Година" style={{ width: '100%', marginBottom: '10px', padding: '8px' }} onChange={e => setNewEvent({...newEvent, hour: parseInt(e.target.value)})} />
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <button onClick={() => { setEvents([...events, newEvent]); setShowAddEvent(false); }} style={{ padding: '10px 20px', background: '#1967d2', color: '#fff', border: 'none', borderRadius: '4px' }}>Зберегти</button>
-                                    <button onClick={() => setShowAddEvent(false)} style={{ padding: '10px 20px', background: '#eee', border: 'none', borderRadius: '4px' }}>Скасувати</button>
-                                </div>
                             </div>
                         )}
                     </div>
