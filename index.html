@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spiral Calendar Pro 3D</title>
+    <title>Google Spiral Calendar</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f8f9fa; }
-        #root { height: 100vh; }
-        .control-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        body { font-family: 'Roboto', sans-serif; background-color: #fff; margin: 0; overflow: hidden; }
+        .google-font { font-family: 'Product Sans', sans-serif; }
+        .sidebar-item:hover { background-color: #f1f3f4; }
+        .active-tab { background-color: #e8f0fe; color: #1a73e8; }
+        canvas { outline: none; }
     </style>
 </head>
 <body>
@@ -22,161 +26,175 @@
     <script type="text/babel">
         const { useState, useRef, useEffect, useMemo } = React;
 
+        // --- Константи дизайну Google ---
+        const COLORS = {
+            blue: '#1a73e8',
+            red: '#ea4335',
+            yellow: '#fbbc04',
+            green: '#34a853',
+            gray: '#5f6368',
+            spiral: '#dadce0'
+        };
+
         const SpiralCalendar = () => {
             const mountRef = useRef(null);
-            const [view, setView] = useState('3d');
-            
-            // Параметри спіралі
-            const [radius, setRadius] = useState(8);      // Амплітуда
-            const [frequency, setFrequency] = useState(1); // Частота (витків)
-            const [height, setHeight] = useState(15);     // Висота
+            const [events, setEvents] = useState([
+                { id: 1, title: 'Ранкова кава', hour: 9, color: COLORS.yellow },
+                { id: 2, title: 'Sync-up Meeting', hour: 11, color: COLORS.blue }
+            ]);
+            const [params, setParams] = useState({ radius: 7, turns: 1.2, height: 14 });
 
-            // --- 3D Сцена ---
+            // --- 3D Engine Оптимізація ---
             useEffect(() => {
-                if (view !== '3d' || !mountRef.current) return;
-
                 const container = mountRef.current;
                 const scene = new THREE.Scene();
-                scene.background = new THREE.Color(0xf8f9fa);
+                scene.background = new THREE.Color('#ffffff');
 
-                const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-                camera.position.set(15, 15, 25);
+                const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+                camera.position.set(18, 12, 18);
 
                 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setSize(container.clientWidth, container.clientHeight);
                 container.appendChild(renderer.domElement);
 
-                // Додаємо OrbitControls для обертання та зуму
                 const controls = new THREE.OrbitControls(camera, renderer.domElement);
                 controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
 
-                // Функція розрахунку кольору градієнта (Ніч -> Ранок -> День -> Вечір)
-                const getHourColor = (h) => {
-                    if (h >= 5 && h < 9) return new THREE.Color('#ffcc33'); // Світанок
-                    if (h >= 9 && h < 17) return new THREE.Color('#4285f4'); // День
-                    if (h >= 17 && h < 21) return new THREE.Color('#f4b400'); // Захід
-                    return new THREE.Color('#202124'); // Ніч
-                };
-
-                const getSpiralPos = (h) => {
+                // Створення спіралі
+                const getPos = (h) => {
                     const t = h / 24;
-                    const angle = t * 2 * Math.PI * frequency;
+                    const angle = t * 2 * Math.PI * params.turns;
                     return new THREE.Vector3(
-                        Math.cos(angle) * radius,
-                        (t - 0.5) * height,
-                        Math.sin(angle) * radius
+                        Math.cos(angle) * params.radius,
+                        (0.5 - t) * params.height, // Інверсія, щоб 00:00 було зверху
+                        Math.sin(angle) * params.radius
                     );
                 };
 
-                // Малювання спіралі (лінія)
-                const points = [];
-                for(let i=0; i<=240; i++) points.push(getSpiralPos(i/10));
-                const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0xdadce0, transparent: true, opacity: 0.5 });
-                const spiralLine = new THREE.Line(lineGeom, lineMat);
-                scene.add(spiralLine);
+                // Основна лінія часу
+                const curvePoints = [];
+                for(let i=0; i<=48; i++) curvePoints.push(getPos(i/2));
+                const curve = new THREE.CatmullRomCurve3(curvePoints);
+                const tubeGeom = new THREE.TubeGeometry(curve, 100, 0.05, 8, false);
+                const tubeMat = new THREE.MeshBasicMaterial({ color: COLORS.spiral });
+                scene.add(new THREE.Mesh(tubeGeom, tubeMat));
 
-                // Точки годин з градієнтом
-                const dotsGroup = new THREE.Group();
+                // Крапки годин з градієнтом
                 for(let h=0; h<24; h++) {
-                    const pos = getSpiralPos(h);
-                    const color = getHourColor(h);
-                    const dotGeom = new THREE.SphereGeometry(0.25, 16, 16);
-                    const dotMat = new THREE.MeshBasicMaterial({ color });
+                    const dotPos = getPos(h);
+                    const dotGeom = new THREE.SphereGeometry(0.15, 16, 16);
+                    let col = COLORS.gray;
+                    if(h >= 7 && h <= 10) col = COLORS.yellow;
+                    if(h > 10 && h <= 18) col = COLORS.blue;
+                    
+                    const dotMat = new THREE.MeshBasicMaterial({ color: col });
                     const dot = new THREE.Mesh(dotGeom, dotMat);
-                    dot.position.copy(pos);
-                    dotsGroup.add(dot);
+                    dot.position.copy(dotPos);
+                    scene.add(dot);
                 }
-                scene.add(dotsGroup);
 
-                // Поточний час (акцентна точка)
+                // Візуалізація подій на спіралі
+                events.forEach(ev => {
+                    const evPos = getPos(ev.hour);
+                    const evGeom = new THREE.SphereGeometry(0.4, 32, 32);
+                    const evMat = new THREE.MeshPhongMaterial({ color: ev.color, shininess: 100 });
+                    const sphere = new THREE.Mesh(evGeom, evMat);
+                    sphere.position.copy(evPos);
+                    scene.add(sphere);
+                    
+                    // Світіння навколо події
+                    const light = new THREE.PointLight(ev.color, 0.5, 3);
+                    light.position.copy(evPos);
+                    scene.add(light);
+                });
+
+                // Поточний час
                 const now = new Date();
                 const curH = now.getHours() + now.getMinutes()/60;
-                const curPos = getSpiralPos(curH);
-                const curGeom = new THREE.SphereGeometry(0.5, 32, 32);
-                const curMat = new THREE.MeshBasicMaterial({ color: 0xea4335 });
-                const curMarker = new THREE.Mesh(curGeom, curMat);
-                curMarker.position.copy(curPos);
+                const curMarker = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.3, 16, 16),
+                    new THREE.MeshBasicMaterial({ color: COLORS.red })
+                );
+                curMarker.position.copy(getPos(curH));
                 scene.add(curMarker);
 
                 const animate = () => {
                     requestAnimationFrame(animate);
                     controls.update();
-                    // Легка пульсація поточного часу
-                    const s = 1 + Math.sin(Date.now() * 0.005) * 0.2;
+                    const s = 1 + Math.sin(Date.now() * 0.003) * 0.2;
                     curMarker.scale.set(s, s, s);
                     renderer.render(scene, camera);
                 };
                 animate();
 
-                const handleResize = () => {
-                    camera.aspect = container.clientWidth / container.clientHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(container.clientWidth, container.clientHeight);
-                };
-                window.addEventListener('resize', handleResize);
-
                 return () => {
-                    window.removeEventListener('resize', handleResize);
                     renderer.dispose();
                     if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
                 };
-            }, [view, radius, frequency, height]);
+            }, [events, params]);
 
             return (
-                <div className="flex h-full w-full">
-                    {/* Ліва панель керування */}
-                    <div className="w-80 border-r bg-white p-6 flex flex-col gap-6 shadow-lg z-10">
-                        <h1 className="text-xl font-bold text-blue-600">Spiral Calendar</h1>
+                <div className="flex h-screen w-full text-[#3c4043]">
+                    {/* Google Sidebar */}
+                    <aside className="w-64 border-r flex flex-col p-4 gap-4">
+                        <div className="flex items-center gap-2 px-2 mb-4">
+                            <div className="w-8 h-8 bg-blue-500 rounded-lg"></div>
+                            <span className="google-font text-xl font-medium">Calendar</span>
+                        </div>
                         
-                        <div className="flex bg-gray-100 p-1 rounded-lg">
-                            <button onClick={() => setView('3d')} className={`flex-1 py-2 rounded ${view === '3d' ? 'bg-white shadow' : ''}`}>3D Сцена</button>
-                            <button onClick={() => setView('list')} className={`flex-1 py-2 rounded ${view === 'list' ? 'bg-white shadow' : ''}`}>Список</button>
+                        <button className="flex items-center gap-3 shadow-md border rounded-full px-6 py-3 hover:shadow-lg transition-all w-fit">
+                            <span className="text-2xl">+</span> <span className="font-medium text-sm">Створити</span>
+                        </button>
+
+                        <div className="mt-4">
+                            <div className="sidebar-item active-tab flex items-center gap-3 p-2 px-4 rounded-r-full cursor-pointer text-sm font-medium">
+                                <span>3D Спіраль</span>
+                            </div>
+                            <div className="sidebar-item flex items-center gap-3 p-2 px-4 rounded-r-full cursor-pointer text-sm">
+                                <span>День</span>
+                            </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-gray-700">Налаштування спіралі</h3>
+                        <div className="mt-auto p-4 bg-gray-50 rounded-xl space-y-3">
+                            <p className="text-[11px] uppercase font-bold text-gray-500 tracking-wider">Параметри виду</p>
+                            <input type="range" className="w-full" min="5" max="15" value={params.radius} onChange={e => setParams({...params, radius: +e.target.value})} />
+                            <input type="range" className="w-full" min="0.5" max="2" step="0.1" value={params.turns} onChange={e => setParams({...params, turns: +e.target.value})} />
+                        </div>
+                    </aside>
+
+                    {/* Main Content Area */}
+                    <main className="flex-1 flex flex-col">
+                        {/* Header Bar */}
+                        <header className="h-16 border-b flex items-center justify-between px-6">
+                            <div className="flex items-center gap-4">
+                                <button className="p-2 hover:bg-gray-100 rounded-full">Today</button>
+                                <h2 className="text-xl google-font">Січень 2026</h2>
+                            </div>
+                            <div className="flex gap-2">
+                                <button className="border rounded px-4 py-1.5 text-sm font-medium hover:bg-gray-50">Тиждень</button>
+                            </div>
+                        </header>
+
+                        <div className="flex-1 relative">
+                            <div ref={mountRef} className="w-full h-full"></div>
                             
-                            <label className="block text-sm">
-                                Амплітуда (Радіус): {radius}
-                                <input type="range" min="2" max="15" step="0.5" value={radius} 
-                                    onChange={(e) => setRadius(parseFloat(e.target.value))} className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer mt-2" />
-                            </label>
-
-                            <label className="block text-sm">
-                                Частота (Витки): {frequency}
-                                <input type="range" min="0.5" max="3" step="0.1" value={frequency} 
-                                    onChange={(e) => setFrequency(parseFloat(e.target.value))} className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer mt-2" />
-                            </label>
-
-                            <label className="block text-sm">
-                                Висота: {height}
-                                <input type="range" min="5" max="30" step="1" value={height} 
-                                    onChange={(e) => setHeight(parseFloat(e.target.value))} className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer mt-2" />
-                            </label>
-                        </div>
-
-                        <div className="mt-auto text-xs text-gray-400">
-                            Використовуйте мишу для обертання та колесо для зуму
-                        </div>
-                    </div>
-
-                    {/* Основний перегляд */}
-                    <div className="flex-1 relative">
-                        {view === '3d' ? (
-                            <div ref={mountRef} className="w-full h-full cursor-move"></div>
-                        ) : (
-                            <div className="p-10 overflow-y-auto h-full bg-white">
-                                <h2 className="text-2xl font-bold mb-6">Погодинний план</h2>
-                                {[...Array(24)].map((_, i) => (
-                                    <div key={i} className="flex border-b py-4 items-center">
-                                        <span className="w-20 font-mono text-gray-500">{i}:00</span>
-                                        <div className="flex-1 h-8 bg-gray-50 rounded"></div>
+                            {/* Overlay List of Events */}
+                            <div className="absolute top-6 right-6 w-72 bg-white/80 backdrop-blur shadow-2xl rounded-2xl p-4 border">
+                                <h3 className="font-medium mb-4">Розклад на сьогодні</h3>
+                                {events.map(ev => (
+                                    <div key={ev.id} className="flex items-center gap-3 p-2 mb-2 rounded-lg hover:bg-white transition-colors">
+                                        <div className="w-3 h-3 rounded-full" style={{backgroundColor: ev.color}}></div>
+                                        <div className="text-sm">
+                                            <div className="font-medium">{ev.title}</div>
+                                            <div className="text-gray-500">{ev.hour}:00</div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    </main>
                 </div>
             );
         };
