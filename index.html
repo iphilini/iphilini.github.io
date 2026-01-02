@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Spiral Calendar Pro</title>
+    <title>Spiral Calendar Pro: Focus & Validation</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -13,26 +13,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Roboto', sans-serif; background: #fff; margin: 0; overflow: hidden; }
-        .google-shadow { box-shadow: 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15); }
-        input { border: 1px solid #dadce0; border-radius: 4px; padding: 6px 10px; outline-color: #1a73e8; }
-        canvas { outline: none; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 10px; }
+        .google-shadow { box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15); }
+        input:invalid { border: 2px solid #ea4335; }
+        canvas { cursor: crosshair; }
+        .transition-camera { transition: all 1s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useEffect, useCallback } = React;
+        const { useState, useRef, useEffect, useCallback, useMemo } = React;
 
         const SpiralCalendar = () => {
             const mountRef = useRef(null);
-            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_events')) || []);
+            const controlsRef = useRef(null);
+            const cameraRef = useRef(null);
+            
+            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_v3')) || []);
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [selectedEvent, setSelectedEvent] = useState(null);
-            
-            // Налаштування вигляду
             const [viewDays, setViewDays] = useState(3);
             const [spiralH, setSpiralH] = useState(14);
             const radius = 8;
@@ -42,9 +42,12 @@
                 endDate: new Date().toISOString().split('T')[0], endTime: "11:30", color: '#1a73e8'
             });
 
-            useEffect(() => {
-                localStorage.setItem('spiral_events', JSON.stringify(events));
-            }, [events]);
+            // Перевірка валідності часу
+            const isTimeValid = useMemo(() => {
+                const start = new Date(`${newEvent.startDate}T${newEvent.startTime}`);
+                const end = new Date(`${newEvent.endDate}T${newEvent.endTime}`);
+                return end > start;
+            }, [newEvent]);
 
             const getPos = useCallback((date, h, days) => {
                 const startOfView = new Date();
@@ -55,226 +58,188 @@
                 return new THREE.Vector3(Math.cos(angle) * radius, yPos, Math.sin(angle) * radius);
             }, [radius]);
 
+            // Функція фокусування камери
+            const focusOnEvent = (ev) => {
+                if (!ev || !controlsRef.current || !cameraRef.current) return;
+                const start = new Date(`${ev.startDate}T${ev.startTime}`);
+                const end = new Date(`${ev.endDate}T${ev.endTime}`);
+                const midDate = new Date((start.getTime() + end.getTime()) / 2);
+                const targetPos = getPos(midDate, spiralH, viewDays);
+
+                // Плавне переміщення цілі OrbitControls
+                const startTarget = controlsRef.current.target.clone();
+                const startTime = performance.now();
+                const duration = 1000;
+
+                const animateFocus = (now) => {
+                    const t = Math.min((now - startTime) / duration, 1);
+                    const eased = t * (2 - t); // Quad ease out
+                    
+                    controlsRef.current.target.lerpVectors(startTarget, targetPos, eased);
+                    cameraRef.current.position.lerp(new THREE.Vector3(targetPos.x + 15, targetPos.y + 5, targetPos.z + 15), eased * 0.05);
+                    
+                    if (t < 1) requestAnimationFrame(animateFocus);
+                };
+                requestAnimationFrame(animateFocus);
+                setSelectedEvent(ev);
+            };
+
             useEffect(() => {
                 const container = mountRef.current;
                 const scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xffffff);
 
                 const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-                camera.position.set(25, 18, 25);
+                camera.position.set(25, 20, 25);
+                cameraRef.current = camera;
 
-                const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
                 renderer.setSize(container.clientWidth, container.clientHeight);
-                renderer.setPixelRatio(window.devicePixelRatio);
                 container.appendChild(renderer.domElement);
 
                 const controls = new THREE.OrbitControls(camera, renderer.domElement);
                 controls.enableDamping = true;
+                controlsRef.current = controls;
 
-                scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-                const sun = new THREE.DirectionalLight(0xffffff, 0.4);
-                sun.position.set(10, 20, 10);
-                scene.add(sun);
+                // Освітлення
+                scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+                const pointLight = new THREE.PointLight(0xffffff, 0.5);
+                pointLight.position.set(20, 30, 20);
+                scene.add(pointLight);
 
-                // Вісь
-                const axisHeight = spiralH * viewDays + 10;
-                scene.add(new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.02, 0.02, axisHeight, 8),
-                    new THREE.MeshBasicMaterial({ color: '#e8eaed' })
-                ));
-
-                // Поділки та спіраль
-                for (let h = 0; h <= 24 * viewDays; h++) {
-                    const d = new Date(); d.setHours(h, 0, 0, 0);
-                    const pos = getPos(d, spiralH, viewDays);
-                    
-                    const tick = new THREE.Mesh(
-                        new THREE.BoxGeometry(h % 24 === 0 ? 1 : 0.6, 0.04, 0.04),
-                        new THREE.MeshBasicMaterial({ color: h % 24 === 0 ? '#1a73e8' : '#5f6368' })
-                    );
-                    tick.position.copy(pos);
-                    tick.rotation.y = -(h / 24) * 2 * Math.PI;
-                    scene.add(tick);
-                }
-
-                // Вантажимо події (TubeGeometry для клікабельності)
-                const eventMeshes = [];
+                // Візуалізація спіралі та подій
+                const eventObjects = [];
                 events.forEach(ev => {
                     const start = new Date(`${ev.startDate}T${ev.startTime}`);
                     const end = new Date(`${ev.endDate}T${ev.endTime}`);
                     const points = [];
-                    const steps = 12;
-                    for(let i=0; i<=steps; i++){
-                        const t = new Date(start.getTime() + (end - start) * (i/steps));
-                        points.push(getPos(t, spiralH, viewDays));
+                    for(let i=0; i<=10; i++){
+                        points.push(getPos(new Date(start.getTime() + (end - start)*(i/10)), spiralH, viewDays));
                     }
-                    if(points.length > 1) {
-                        const curve = new THREE.CatmullRomCurve3(points);
-                        const tube = new THREE.Mesh(
-                            new THREE.TubeGeometry(curve, 32, 0.3, 12, false),
-                            new THREE.MeshPhongMaterial({ color: ev.color, shininess: 100 })
-                        );
-                        tube.userData = ev;
-                        scene.add(tube);
-                        eventMeshes.push(tube);
-                    }
+                    const curve = new THREE.CatmullRomCurve3(points);
+                    const mesh = new THREE.Mesh(
+                        new THREE.TubeGeometry(curve, 20, 0.3, 8, false),
+                        new THREE.MeshPhongMaterial({ color: ev.color, shininess: 100 })
+                    );
+                    mesh.userData = ev;
+                    scene.add(mesh);
+                    eventObjects.push(mesh);
                 });
 
-                // Пульсуючий маркер часу
+                // Маркер поточного часу
                 const nowMarker = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.5, 32, 32),
-                    new THREE.MeshPhongMaterial({ color: '#ea4335', emissive: '#ea4335', emissiveIntensity: 0.3 })
+                    new THREE.SphereGeometry(0.4, 32, 32),
+                    new THREE.MeshBasicMaterial({ color: '#ea4335' })
                 );
                 scene.add(nowMarker);
 
                 // Raycaster
                 const raycaster = new THREE.Raycaster();
                 const mouse = new THREE.Vector2();
-
                 const onMouseDown = (e) => {
-                    const rect = container.getBoundingClientRect();
-                    mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
-                    mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+                    mouse.x = (e.clientX - container.offsetLeft) / container.clientWidth * 2 - 1;
+                    mouse.y = -(e.clientY - container.offsetTop) / container.clientHeight * 2 + 1;
                     raycaster.setFromCamera(mouse, camera);
-                    const hits = raycaster.intersectObjects(eventMeshes);
-                    if(hits.length > 0) setSelectedEvent(hits[0].object.userData);
-                    else setSelectedEvent(null);
+                    const intersects = raycaster.intersectObjects(eventObjects);
+                    if(intersects.length > 0) focusOnEvent(intersects[0].object.userData);
                 };
                 container.addEventListener('mousedown', onMouseDown);
 
                 const animate = () => {
-                    const frame = requestAnimationFrame(animate);
+                    requestAnimationFrame(animate);
                     controls.update();
-                    const now = new Date();
-                    nowMarker.position.copy(getPos(now, spiralH, viewDays));
-                    nowMarker.scale.setScalar(1 + Math.sin(Date.now()*0.005)*0.1);
+                    nowMarker.position.copy(getPos(new Date(), spiralH, viewDays));
                     renderer.render(scene, camera);
                 };
                 animate();
 
                 return () => {
-                    container.removeEventListener('mousedown', onMouseDown);
                     renderer.dispose();
+                    container.removeEventListener('mousedown', onMouseDown);
                     if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
                 };
             }, [events, viewDays, spiralH, getPos]);
 
-            const handleDelete = (id) => {
-                setEvents(prev => prev.filter(e => e.id !== id));
-                setSelectedEvent(null);
-            };
+            useEffect(() => {
+                localStorage.setItem('spiral_v3', JSON.stringify(events));
+            }, [events]);
 
             return (
-                <div className="flex h-screen w-full bg-white select-none">
+                <div className="flex h-screen w-full bg-white overflow-hidden">
                     {/* Sidebar */}
-                    <aside className="w-80 border-r flex flex-col p-5 bg-white z-10 overflow-hidden">
-                        <div className="flex items-center gap-2 mb-8 px-1">
-                            <div className="w-8 h-8 bg-[#1a73e8] rounded-lg flex items-center justify-center text-white font-bold">G</div>
-                            <span className="text-xl text-gray-600 font-medium">Spiral Calendar</span>
+                    <aside className="w-80 border-r flex flex-col p-6 bg-white z-10">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">G</div>
+                            <span className="text-xl font-medium text-gray-700">Spiral Pro</span>
                         </div>
 
-                        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-4 py-3 px-6 rounded-full google-shadow border hover:bg-gray-50 transition-all w-fit mb-8">
-                            <svg width="24" height="24" viewBox="0 0 36 36"><path fill="#34A853" d="M16 16v14h4V20z"/><path fill="#4285F4" d="M30 16H20l-4 4h14z"/><path fill="#FBBC05" d="M6 16v4h10l4-4z"/><path fill="#EA4335" d="M20 16V6h-4v14z"/></svg>
-                            <span className="font-medium text-sm text-gray-700">Створити</span>
+                        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-4 py-3 px-6 rounded-full google-shadow border hover:bg-gray-50 mb-8 transition-transform active:scale-95">
+                            <span className="text-xl text-blue-600">+</span>
+                            <span className="font-medium text-sm">Створити</span>
                         </button>
 
-                        <div className="flex-1 flex flex-col min-h-0">
-                            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">Список подій</h3>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                {events.length === 0 ? (
-                                    <div className="text-xs text-gray-400 text-center py-10">Подій поки немає</div>
-                                ) : (
-                                    events.map(ev => (
-                                        <div key={ev.id} className="group flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all cursor-pointer" onClick={() => setSelectedEvent(ev)}>
-                                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: ev.color}}></div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-gray-800 truncate">{ev.title}</div>
-                                                <div className="text-[10px] text-gray-500">{ev.startTime} - {ev.endTime}</div>
-                                            </div>
-                                            <button onClick={(e) => {e.stopPropagation(); handleDelete(ev.id);}} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all">🗑️</button>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="pt-6 border-t mt-4 space-y-4">
-                            <div className="flex justify-between text-[11px] font-bold text-gray-500 uppercase">
-                                <span>Перегляд</span>
-                                <span>{viewDays} дн.</span>
-                            </div>
-                            <input type="range" min="1" max="14" value={viewDays} onChange={e => setViewDays(Number(e.target.value))} className="w-full accent-blue-600" />
+                        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Твої плани</h3>
+                            {events.map(ev => (
+                                <div key={ev.id} 
+                                     onClick={() => focusOnEvent(ev)}
+                                     className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedEvent?.id === ev.id ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-2 h-2 rounded-full" style={{background: ev.color}}></div>
+                                        <div className="text-sm font-bold text-gray-800 truncate">{ev.title}</div>
+                                    </div>
+                                    <div className="text-[10px] text-gray-500">{ev.startTime} - {ev.endTime}</div>
+                                </div>
+                            ))}
                         </div>
                     </aside>
 
-                    {/* Main Area */}
-                    <main className="flex-1 relative bg-[#f8f9fa] overflow-hidden">
-                        <header className="h-16 bg-white border-b flex items-center px-8 justify-between">
-                            <div className="flex items-center gap-4">
-                                <h2 className="text-lg font-medium text-gray-700">Сьогодні: {new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}</h2>
+                    {/* Scene */}
+                    <main className="flex-1 relative">
+                        <div ref={mountRef} className="w-full h-full"></div>
+                        
+                        {/* Validation Alert Overlay */}
+                        {isModalOpen && !isTimeValid && (
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-50 text-red-600 px-4 py-2 rounded-full text-xs font-bold border border-red-100 shadow-sm z-[60]">
+                                ⚠️ Час завершення має бути пізнішим за початок
                             </div>
-                        </header>
+                        )}
 
-                        <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing"></div>
-
-                        {/* Floating Event Card */}
+                        {/* Event Details Card */}
                         {selectedEvent && (
-                            <div className="absolute top-24 right-10 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 z-50 animate-in fade-in zoom-in-95 duration-200">
-                                <div className="flex justify-between mb-4">
-                                    <div className="px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider shadow-sm" style={{background: selectedEvent.color}}>Подія</div>
-                                    <button onClick={() => setSelectedEvent(null)} className="text-gray-300 hover:text-gray-600 text-xl">&times;</button>
-                                </div>
-                                <h3 className="text-2xl font-semibold text-gray-900 mb-2 leading-tight">{selectedEvent.title}</h3>
-                                <div className="space-y-3 mb-8">
-                                    <div className="flex items-center gap-3 text-sm text-gray-600">
-                                        <span className="text-lg">📅</span> {selectedEvent.startDate}
-                                    </div>
-                                    <div className="flex items-center gap-3 text-sm text-gray-600">
-                                        <span className="text-lg">⏰</span> {selectedEvent.startTime} – {selectedEvent.endTime}
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleDelete(selectedEvent.id)} className="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-100 transition-colors">ВИДАЛИТИ</button>
-                                    <button onClick={() => setSelectedEvent(null)} className="flex-1 py-3 bg-gray-50 text-gray-500 rounded-xl font-bold text-xs hover:bg-gray-100 transition-colors">ЗАКРИТИ</button>
-                                </div>
+                            <div className="absolute bottom-10 right-10 bg-white/90 backdrop-blur shadow-2xl rounded-2xl p-6 w-72 border border-gray-100 animate-in slide-in-from-bottom-4">
+                                <h4 className="text-lg font-bold text-gray-800 mb-1">{selectedEvent.title}</h4>
+                                <p className="text-xs text-gray-500 mb-4">{selectedEvent.startDate} | {selectedEvent.startTime} - {selectedEvent.endTime}</p>
+                                <button onClick={() => setEvents(events.filter(e => e.id !== selectedEvent.id))} className="text-[10px] font-bold text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg w-full transition-colors">ВИДАЛИТИ ПОДІЮ</button>
                             </div>
                         )}
                     </main>
 
-                    {/* Modal Add Event */}
+                    {/* Google Style Modal */}
                     {isModalOpen && (
-                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                                <div className="p-8">
-                                    <input 
-                                        type="text" placeholder="Назва події" autoFocus
-                                        className="w-full border-b-2 border-gray-100 focus:border-blue-600 outline-none py-2 text-2xl transition-all mb-8 font-light"
-                                        value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})}
-                                    />
-                                    <div className="grid grid-cols-2 gap-6 mb-8">
-                                        <div className="space-y-2">
-                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Початок</div>
-                                            <input type="date" className="w-full text-sm" value={newEvent.startDate} onChange={e => setNewEvent({...newEvent, startDate: e.target.value})} />
-                                            <input type="time" className="w-full text-sm" value={newEvent.startTime} onChange={e => setNewEvent({...newEvent, startTime: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Кінець</div>
-                                            <input type="date" className="w-full text-sm" value={newEvent.endDate} onChange={e => setNewEvent({...newEvent, endDate: e.target.value})} />
-                                            <input type="time" className="w-full text-sm" value={newEvent.endTime} onChange={e => setNewEvent({...newEvent, endTime: e.target.value})} />
-                                        </div>
+                        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
+                                <input type="text" placeholder="Назва події" className="w-full text-2xl font-light border-b-2 border-gray-100 focus:border-blue-600 outline-none mb-8 transition-colors" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
+                                <div className="grid grid-cols-2 gap-6 mb-8">
+                                    <div className="space-y-2 text-xs font-bold text-gray-400">
+                                        <div>ПОЧАТОК</div>
+                                        <input type="date" className="w-full bg-gray-50 border-none p-2 rounded" value={newEvent.startDate} onChange={e => setNewEvent({...newEvent, startDate: e.target.value})} />
+                                        <input type="time" className="w-full bg-gray-50 border-none p-2 rounded" value={newEvent.startTime} onChange={e => setNewEvent({...newEvent, startTime: e.target.value})} />
                                     </div>
-                                    <div className="flex gap-4">
-                                        {['#1a73e8', '#d50000', '#f4b400', '#0b8043'].map(c => (
-                                            <button key={c} onClick={() => setNewEvent({...newEvent, color: c})} className={`w-10 h-10 rounded-full transition-transform ${newEvent.color === c ? 'scale-110 ring-4 ring-blue-50' : 'opacity-60 hover:opacity-100'}`} style={{background: c}} />
-                                        ))}
+                                    <div className="space-y-2 text-xs font-bold text-gray-400">
+                                        <div>КІНЕЦЬ</div>
+                                        <input type="date" className="w-full bg-gray-50 border-none p-2 rounded" value={newEvent.endDate} onChange={e => setNewEvent({...newEvent, endDate: e.target.value})} />
+                                        <input type="time" className="w-full bg-gray-50 border-none p-2 rounded" value={newEvent.endTime} onChange={e => setNewEvent({...newEvent, endTime: e.target.value})} />
                                     </div>
                                 </div>
-                                <div className="bg-gray-50 px-8 py-5 flex justify-end gap-3">
-                                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors">Скасувати</button>
+                                <div className="flex justify-end gap-3 pt-4 border-t">
+                                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl">Скасувати</button>
                                     <button 
-                                        onClick={() => { if(!newEvent.title) return; setEvents(prev => [...prev, {...newEvent, id: Date.now()}]); setIsModalOpen(false); }}
-                                        className="px-10 py-2 bg-blue-600 text-white rounded-full font-medium shadow-lg hover:bg-blue-700 transition-all active:scale-95"
-                                    >Зберегти</button>
+                                        disabled={!isTimeValid || !newEvent.title}
+                                        onClick={() => { setEvents([...events, {...newEvent, id: Date.now()}]); setIsModalOpen(false); }}
+                                        className={`px-8 py-2 rounded-xl text-white text-sm font-medium shadow-lg transition-all ${isTimeValid && newEvent.title ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'}`}>
+                                        Зберегти
+                                    </button>
                                 </div>
                             </div>
                         </div>
