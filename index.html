@@ -3,103 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spiral Calendar - Evolution Hub</title>
+    <title>Spiral Calendar - Project Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background: radial-gradient(circle at top left, #f8fafc, #e2e8f0);
+            background: radial-gradient(circle at top left, #f1f5f9, #cbd5e1);
             min-height: 100vh;
         }
         .version-card {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
         }
         .version-card:hover {
-            transform: translateY(-8px);
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-12px) scale(1.02);
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.15);
         }
-        .status-badge {
-            font-size: 9px;
-            padding: 2px 8px;
-            border-radius: 99px;
-            font-weight: 900;
-            text-transform: uppercase;
+        .glow-active {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+            border-color: rgba(6, 182, 212, 0.4);
         }
     </style>
 </head>
-<body class="p-8 md:p-20">
-    <div class="max-w-6xl mx-auto">
-        <header class="mb-20">
-            <div class="flex items-center gap-5 mb-6">
-                <div class="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl shadow-slate-300">
-                    <span class="text-white font-black text-3xl italic">S</span>
-                </div>
-                <div>
-                    <h1 class="text-5xl font-extrabold text-slate-900 tracking-tighter">Spiral Labs</h1>
-                    <p class="text-slate-500 font-medium italic">Майбутнє тайм-менеджменту в 3D</p>
-                </div>
+<body class="p-6 md:p-16 lg:p-24">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-24 relative">
+            <div class="inline-block px-4 py-1 rounded-full bg-blue-600/10 text-blue-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4">
+                Development Roadmap 2026
             </div>
-            <div class="h-1 w-20 bg-blue-600 rounded-full"></div>
+            <h1 class="text-6xl font-black text-slate-900 tracking-tighter mb-4">
+                Spiral <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Calendar</span>
+            </h1>
+            <p class="text-xl text-slate-500 font-medium max-w-2xl">
+                Еволюція тривимірного часового простору. Від статичної математичної моделі до інтерактивного планувальника.
+            </p>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             
-            <a href="v1_concept.html" class="version-card p-10 rounded-[40px] block group">
-                <div class="flex justify-between items-start mb-6">
-                    <span class="text-slate-400 font-black text-xs uppercase tracking-widest">v1.0</span>
-                    <span class="status-badge bg-slate-100 text-slate-500">Архів</span>
-                </div>
-                <h3 class="text-2xl font-extrabold text-slate-900 mb-4 group-hover:text-blue-600 transition-colors">Visual Concept</h3>
-                <p class="text-slate-500 leading-relaxed mb-8">Перша спроба візуалізувати час як нескінченну спіраль. Базова геометрія та навігація.</p>
-                <div class="flex items-center gap-2 text-blue-600 font-bold text-sm">
-                    Переглянути <span>→</span>
-                </div>
+            <a href="v1_concept.html" class="version-card p-10 rounded-[48px] block group">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10 block">01 / Concept</span>
+                <h3 class="text-2xl font-extrabold text-slate-900 mb-4 group-hover:text-blue-600 transition-colors">Visual Spiral</h3>
+                <p class="text-slate-500 text-sm leading-relaxed mb-8 italic">"Як виглядає час?"</p>
+                <div class="text-xs font-bold text-slate-300">Січень 2, 2026</div>
             </a>
 
-            <a href="v2_logic.html" class="version-card p-10 rounded-[40px] block group">
-                <div class="flex justify-between items-start mb-6">
-                    <span class="text-blue-500 font-black text-xs uppercase tracking-widest">v2.0</span>
-                    <span class="status-badge bg-blue-100 text-blue-600">Stable</span>
-                </div>
+            <a href="v2_logic.html" class="version-card p-10 rounded-[48px] block group">
+                <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-10 block">02 / Engine</span>
                 <h3 class="text-2xl font-extrabold text-slate-900 mb-4 group-hover:text-blue-600 transition-colors">Temporal Logic</h3>
-                <p class="text-slate-500 leading-relaxed mb-8">Математичне ядро: витки = дні, кути = години. Впровадження кільця "Зараз" та часових інтервалів.</p>
-                <div class="flex items-center gap-2 text-blue-600 font-bold text-sm">
-                    Переглянути <span>→</span>
-                </div>
+                <p class="text-slate-500 text-sm leading-relaxed mb-8">Математична сітка, де кожен градус — це хвилина життя.</p>
+                <div class="text-xs font-bold text-slate-300">Січень 2, 2026</div>
             </a>
 
-            <a href="v3_interaction.html" class="version-card p-10 rounded-[40px] block group border-2 border-cyan-200 ring-8 ring-cyan-50/50">
-                <div class="flex justify-between items-start mb-6">
-                    <span class="text-cyan-600 font-black text-xs uppercase tracking-widest">v3.0</span>
-                    <span class="status-badge bg-cyan-500 text-white animate-pulse">Latest</span>
+            <a href="v3_interaction.html" class="version-card p-10 rounded-[48px] block group">
+                <span class="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-10 block">03 / UI</span>
+                <h3 class="text-2xl font-extrabold text-slate-900 mb-4 group-hover:text-cyan-600 transition-colors">Raycasting</h3>
+                <p class="text-slate-500 text-sm leading-relaxed mb-8">Дотик до часу. Система почала розуміти кліки по кривій.</p>
+                <div class="text-xs font-bold text-slate-300">Січень 3, 2026</div>
+            </a>
+
+            <a href="v4_creation.html" class="version-card p-10 rounded-[48px] block group glow-active bg-white relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-6">
+                    <span class="flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                    </span>
                 </div>
-                <h3 class="text-2xl font-extrabold text-slate-900 mb-4 group-hover:text-cyan-600 transition-colors">Raycasting Focus</h3>
-                <p class="text-slate-500 leading-relaxed mb-8">Повна інтерактивність: вибір часу кліком на спіраль, зворотний перерахунок координат у дату, UI-тост.</p>
-                <div class="flex items-center gap-2 text-cyan-600 font-bold text-sm">
-                    Спробувати взаємодію <span>→</span>
+                <span class="text-[10px] font-black text-cyan-600 uppercase tracking-widest mb-10 block italic">04 / Deployment</span>
+                <h3 class="text-2xl font-extrabold text-slate-900 mb-4">Persistence</h3>
+                <p class="text-slate-500 text-sm leading-relaxed mb-8 font-semibold">Повноцінний календар: створення, колір, збереження в пам'ять.</p>
+                <div class="inline-flex items-center gap-2 text-cyan-600 font-black text-[10px] uppercase tracking-tighter">
+                    Спробувати версію <span>→</span>
                 </div>
             </a>
 
         </div>
 
-        <footer class="mt-32 pt-10 border-t border-slate-200">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-                <p class="text-sm text-slate-400 font-medium">© 2026 iPhilini / Spiral Project. Всі права на час захищені.</p>
-                <div class="flex items-center gap-8">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Core: Three.js</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">UI: Tailwind</span>
-                    </div>
-                </div>
+        <footer class="mt-32 flex flex-col md:flex-row justify-between items-center gap-8 py-12 border-t border-slate-300/50">
+            <div class="flex items-center gap-6">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-widest">Stack:</div>
+                <div class="px-3 py-1 bg-white rounded-lg shadow-sm text-[10px] font-black text-slate-600 italic">THREE.JS</div>
+                <div class="px-3 py-1 bg-white rounded-lg shadow-sm text-[10px] font-black text-slate-600 italic">TAILWIND</div>
+                <div class="px-3 py-1 bg-white rounded-lg shadow-sm text-[10px] font-black text-slate-600 italic">LOCALSTORAGE</div>
+            </div>
+            <div class="text-right">
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Status: Production Ready</p>
+                <p class="text-[10px] text-slate-300">Built with 🧠 and Three.js</p>
             </div>
         </footer>
     </div>
