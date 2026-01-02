@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spiral Calendar Pro - Fixed Version</title>
+    <title>Spiral Calendar Pro - Spatial Labels</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,8 +14,6 @@
     <style>
         body { font-family: 'Roboto', sans-serif; background: #fff; margin: 0; overflow: hidden; }
         .google-shadow { box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15); }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 10px; }
         canvas { outline: none; }
     </style>
 </head>
@@ -23,30 +21,41 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useEffect, useCallback, useMemo } = React;
+        const { useState, useRef, useEffect, useCallback } = React;
+
+        // Функція для створення тексту як текстури для спрайтів
+        const createTextLabel = (text) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.font = 'Bold 40px Roboto, Arial';
+            ctx.fillStyle = '#1a73e8';
+            ctx.textAlign = 'center';
+            ctx.fillText(text, 128, 64);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(4, 2, 1);
+            return sprite;
+        };
 
         const SpiralCalendar = () => {
             const mountRef = useRef(null);
             const controlsRef = useRef(null);
             const cameraRef = useRef(null);
             
-            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_v4')) || []);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [selectedEvent, setSelectedEvent] = useState(null);
-            const [viewDays, setViewDays] = useState(3);
+            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_v5')) || []);
+            const [viewDays, setViewDays] = useState(5);
             const [spiralH, setSpiralH] = useState(14);
+            const [selectedEvent, setSelectedEvent] = useState(null);
+            const [isModalOpen, setIsModalOpen] = useState(false);
             const radius = 8;
-
-            const [newEvent, setNewEvent] = useState({
-                title: '', startDate: new Date().toISOString().split('T')[0], startTime: "10:00",
-                endDate: new Date().toISOString().split('T')[0], endTime: "11:30", color: '#1a73e8'
-            });
-
-            const isTimeValid = useMemo(() => {
-                const start = new Date(`${newEvent.startDate}T${newEvent.startTime}`);
-                const end = new Date(`${newEvent.endDate}T${newEvent.endTime}`);
-                return end > start;
-            }, [newEvent]);
 
             const getPos = useCallback((date, h, days) => {
                 const startOfView = new Date();
@@ -58,27 +67,20 @@
             }, [radius]);
 
             const focusOnEvent = (ev) => {
-                if (!ev || !controlsRef.current || !cameraRef.current) return;
+                if (!ev || !controlsRef.current) return;
                 const start = new Date(`${ev.startDate}T${ev.startTime}`);
                 const end = new Date(`${ev.endDate}T${ev.endTime}`);
                 const midDate = new Date((start.getTime() + end.getTime()) / 2);
                 const targetPos = getPos(midDate, spiralH, viewDays);
 
                 const startTarget = controlsRef.current.target.clone();
-                const startCamPos = cameraRef.current.position.clone();
-                const endCamPos = new THREE.Vector3(targetPos.x + 15, targetPos.y + 5, targetPos.z + 15);
-                
                 const startTime = performance.now();
-                const duration = 800;
-
-                const animateFocus = (now) => {
-                    const t = Math.min((now - startTime) / duration, 1);
-                    const eased = t * (2 - t);
-                    controlsRef.current.target.lerpVectors(startTarget, targetPos, eased);
-                    cameraRef.current.position.lerpVectors(startCamPos, endCamPos, eased);
-                    if (t < 1) requestAnimationFrame(animateFocus);
+                const animate = (now) => {
+                    const t = Math.min((now - startTime) / 800, 1);
+                    controlsRef.current.target.lerpVectors(startTarget, targetPos, t * (2 - t));
+                    if (t < 1) requestAnimationFrame(animate);
                 };
-                requestAnimationFrame(animateFocus);
+                requestAnimationFrame(animate);
                 setSelectedEvent(ev);
             };
 
@@ -99,211 +101,136 @@
                 controls.enableDamping = true;
                 controlsRef.current = controls;
 
-                scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-                const light = new THREE.DirectionalLight(0xffffff, 0.5);
-                light.position.set(10, 20, 10);
-                scene.add(light);
-
-                // 1. ВЕРТАЄМО ВІСЬ
-                const axisHeight = spiralH * viewDays + 10;
+                scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+                
+                // Вісь та Спіраль
                 const axis = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.02, 0.02, axisHeight, 8),
+                    new THREE.CylinderGeometry(0.02, 0.02, spiralH * viewDays + 10, 8),
                     new THREE.MeshBasicMaterial({ color: '#e8eaed' })
                 );
                 scene.add(axis);
 
-                // 2. ВЕРТАЄМО ПОДІЛКИ ТА КІЛЬЦЯ ДНІВ
                 for (let h = 0; h <= 24 * viewDays; h++) {
                     const d = new Date(); d.setHours(h, 0, 0, 0);
                     const pos = getPos(d, spiralH, viewDays);
                     
                     // Поділки годин
                     const tick = new THREE.Mesh(
-                        new THREE.BoxGeometry(h % 24 === 0 ? 1.2 : 0.7, 0.05, 0.05),
-                        new THREE.MeshBasicMaterial({ color: h % 24 === 0 ? '#1a73e8' : '#5f6368' })
+                        new THREE.BoxGeometry(h % 24 === 0 ? 1.2 : 0.6, 0.05, 0.05),
+                        new THREE.MeshBasicMaterial({ color: h % 24 === 0 ? '#1a73e8' : '#dadce0' })
                     );
                     tick.position.copy(pos);
                     tick.rotation.y = -(h / 24) * 2 * Math.PI;
                     scene.add(tick);
 
-                    // Кільця нових днів
+                    // Розділювачі днів та МІТКИ ДАТИ
                     if (h % 24 === 0) {
+                        // Кільце
                         const ring = new THREE.Mesh(
-                            new THREE.TorusGeometry(radius + 0.2, 0.01, 8, 64),
-                            new THREE.MeshBasicMaterial({ color: '#1a73e8', transparent: true, opacity: 0.2 })
+                            new THREE.TorusGeometry(radius + 0.3, 0.01, 8, 64),
+                            new THREE.MeshBasicMaterial({ color: '#1a73e8', transparent: true, opacity: 0.15 })
                         );
                         ring.position.y = pos.y;
                         ring.rotation.x = Math.PI / 2;
                         scene.add(ring);
+
+                        // Текстова мітка (Sprite)
+                        const dateLabel = d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+                        const sprite = createTextLabel(dateLabel);
+                        sprite.position.set(pos.x + 2, pos.y + 0.8, pos.z + 2); // Трохи зміщено від осі
+                        scene.add(sprite);
                     }
                 }
 
-                // 3. МАЛЮЄМО ПОДІЇ
-                const eventObjects = [];
+                // Події
+                const eventMeshes = [];
                 events.forEach(ev => {
                     const start = new Date(`${ev.startDate}T${ev.startTime}`);
                     const end = new Date(`${ev.endDate}T${ev.endTime}`);
-                    const points = [];
-                    const steps = 15;
-                    for(let i=0; i<=steps; i++){
-                        points.push(getPos(new Date(start.getTime() + (end - start)*(i/steps)), spiralH, viewDays));
-                    }
-                    if(points.length > 1) {
-                        const curve = new THREE.CatmullRomCurve3(points);
-                        const mesh = new THREE.Mesh(
-                            new THREE.TubeGeometry(curve, 40, 0.35, 12, false),
-                            new THREE.MeshPhongMaterial({ color: ev.color, shininess: 100 })
-                        );
-                        mesh.userData = ev;
-                        scene.add(mesh);
-                        eventObjects.push(mesh);
-                    }
+                    const pts = [];
+                    for(let i=0; i<=12; i++) pts.push(getPos(new Date(start.getTime() + (end-start)*(i/12)), spiralH, viewDays));
+                    
+                    const tube = new THREE.Mesh(
+                        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, 0.35, 12, false),
+                        new THREE.MeshPhongMaterial({ color: ev.color, shininess: 80 })
+                    );
+                    tube.userData = ev;
+                    scene.add(tube);
+                    eventMeshes.push(tube);
                 });
 
-                // 4. МАРКЕР ЧАСУ
                 const nowMarker = new THREE.Mesh(
                     new THREE.SphereGeometry(0.5, 32, 32),
-                    new THREE.MeshPhongMaterial({ color: '#ea4335', emissive: '#ea4335', emissiveIntensity: 0.4 })
+                    new THREE.MeshPhongMaterial({ color: '#ea4335', emissive: '#ea4335', emissiveIntensity: 0.5 })
                 );
                 scene.add(nowMarker);
 
                 const raycaster = new THREE.Raycaster();
                 const mouse = new THREE.Vector2();
-                const onMouseDown = (e) => {
+                const onClick = (e) => {
                     const rect = container.getBoundingClientRect();
                     mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
                     mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
                     raycaster.setFromCamera(mouse, camera);
-                    const intersects = raycaster.intersectObjects(eventObjects);
+                    const intersects = raycaster.intersectObjects(eventMeshes);
                     if(intersects.length > 0) focusOnEvent(intersects[0].object.userData);
                 };
-                container.addEventListener('mousedown', onMouseDown);
+                container.addEventListener('mousedown', onClick);
 
                 const animate = () => {
-                    const id = requestAnimationFrame(animate);
+                    requestAnimationFrame(animate);
                     controls.update();
                     nowMarker.position.copy(getPos(new Date(), spiralH, viewDays));
-                    nowMarker.scale.setScalar(1 + Math.sin(Date.now()*0.005)*0.1);
                     renderer.render(scene, camera);
                 };
                 animate();
 
                 return () => {
                     renderer.dispose();
-                    container.removeEventListener('mousedown', onMouseDown);
-                    if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+                    container.removeEventListener('mousedown', onClick);
                 };
             }, [events, viewDays, spiralH, getPos]);
 
-            useEffect(() => {
-                localStorage.setItem('spiral_v4', JSON.stringify(events));
-            }, [events]);
+            useEffect(() => { localStorage.setItem('spiral_v5', JSON.stringify(events)); }, [events]);
 
             return (
                 <div className="flex h-screen w-full bg-white overflow-hidden select-none">
-                    {/* Sidebar */}
-                    <aside className="w-80 border-r flex flex-col p-6 bg-white z-10">
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="w-8 h-8 bg-[#1a73e8] rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">G</div>
-                            <span className="text-xl font-medium text-gray-700 tracking-tight">Spiral Calendar</span>
+                    <aside className="w-80 border-r flex flex-col p-6 z-10 bg-white">
+                        <div className="flex items-center gap-3 mb-10">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg shadow-lg flex items-center justify-center text-white font-bold">G</div>
+                            <h1 className="text-xl font-medium text-gray-700">Spiral Pro</h1>
                         </div>
-
-                        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-4 py-3 px-6 rounded-full google-shadow border border-gray-100 hover:bg-gray-50 mb-8 transition-all active:scale-95 group">
-                            <svg width="24" height="24" viewBox="0 0 36 36"><path fill="#34A853" d="M16 16v14h4V20z"/><path fill="#4285F4" d="M30 16H20l-4 4h14z"/><path fill="#FBBC05" d="M6 16v4h10l4-4z"/><path fill="#EA4335" d="M20 16V6h-4v14z"/></svg>
-                            <span className="font-medium text-sm text-gray-700">Створити подію</span>
+                        
+                        <button onClick={() => setIsModalOpen(true)} className="w-fit px-6 py-3 rounded-full google-shadow border flex items-center gap-3 hover:bg-gray-50 active:scale-95 transition-all mb-8">
+                            <span className="text-2xl text-blue-600 font-light">+</span>
+                            <span className="text-sm font-medium">Створити</span>
                         </button>
 
-                        <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">Розклад</h3>
-                            {events.length === 0 ? (
-                                <div className="text-center py-10 text-gray-300 text-xs">Немає запланованих подій</div>
-                            ) : (
-                                events.map(ev => (
-                                    <div key={ev.id} 
-                                         onClick={() => focusOnEvent(ev)}
-                                         className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedEvent?.id === ev.id ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className="w-3 h-3 rounded-full shadow-sm" style={{background: ev.color}}></div>
-                                            <div className="text-sm font-semibold text-gray-800 truncate">{ev.title}</div>
-                                        </div>
-                                        <div className="text-[11px] text-gray-500 font-medium opacity-80 flex items-center gap-2">
-                                            <span>📅 {ev.startDate}</span>
-                                            <span>•</span>
-                                            <span>⏰ {ev.startTime}</span>
-                                        </div>
+                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Наступні події</p>
+                            {events.map(ev => (
+                                <div key={ev.id} onClick={() => focusOnEvent(ev)} className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedEvent?.id === ev.id ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{background: ev.color}}></div>
+                                        <div className="text-sm font-bold text-gray-800 truncate">{ev.title}</div>
                                     </div>
-                                ))
-                            )}
-                        </div>
-
-                        <div className="pt-6 border-t mt-6 space-y-4">
-                            <div className="flex justify-between text-[11px] font-bold text-gray-500 uppercase">
-                                <span>Днів в огляді</span>
-                                <span className="text-blue-600 bg-blue-50 px-2 rounded">{viewDays} дн.</span>
-                            </div>
-                            <input type="range" min="1" max="10" value={viewDays} onChange={e => setViewDays(Number(e.target.value))} className="w-full accent-blue-600" />
+                                    <div className="text-[10px] text-gray-500 font-medium tracking-tight">📅 {ev.startDate} • {ev.startTime}</div>
+                                </div>
+                            ))}
                         </div>
                     </aside>
 
-                    {/* Scene */}
                     <main className="flex-1 relative bg-[#f8f9fa]">
-                        <header className="h-16 bg-white/80 backdrop-blur-md border-b flex items-center px-8 justify-between absolute top-0 w-full z-20">
-                            <h2 className="text-lg font-normal text-gray-700">{new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}</h2>
-                        </header>
-                        
                         <div ref={mountRef} className="w-full h-full"></div>
-                        
+
                         {selectedEvent && (
-                            <div className="absolute top-24 right-8 bg-white rounded-3xl shadow-2xl p-6 w-80 border border-gray-100 animate-in slide-in-from-right-4 z-50">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="px-4 py-1.5 rounded-full text-[10px] font-bold text-white uppercase tracking-tighter" style={{background: selectedEvent.color}}>Деталі зустрічі</div>
-                                    <button onClick={() => setSelectedEvent(null)} className="text-gray-300 hover:text-gray-500 text-2xl">&times;</button>
-                                </div>
-                                <h4 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">{selectedEvent.title}</h4>
-                                <div className="space-y-3 mb-8 text-sm text-gray-600">
-                                    <div className="flex items-center gap-3"><span>📅</span> {selectedEvent.startDate}</div>
-                                    <div className="flex items-center gap-3"><span>⏰</span> {selectedEvent.startTime} – {selectedEvent.endTime}</div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => {setEvents(events.filter(e => e.id !== selectedEvent.id)); setSelectedEvent(null);}} className="flex-1 py-3 bg-red-50 text-red-600 rounded-2xl font-bold text-xs hover:bg-red-100 transition-colors">ВИДАЛИТИ</button>
-                                    <button onClick={() => setSelectedEvent(null)} className="flex-1 py-3 bg-gray-50 text-gray-500 rounded-2xl font-bold text-xs hover:bg-gray-100 transition-colors">ЗАКРИТИ</button>
-                                </div>
+                            <div className="absolute top-10 right-10 bg-white/90 backdrop-blur rounded-3xl shadow-2xl p-6 border border-white w-72 animate-in slide-in-from-right-4">
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">{selectedEvent.title}</h3>
+                                <p className="text-xs text-gray-500 mb-6">{selectedEvent.startDate} | {selectedEvent.startTime} - {selectedEvent.endTime}</p>
+                                <button onClick={() => setEvents(events.filter(e => e.id !== selectedEvent.id))} className="w-full py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">ВИДАЛИТИ</button>
                             </div>
                         )}
                     </main>
-
-                    {/* Modal */}
-                    {isModalOpen && (
-                        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                            <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
-                                <div className="p-8">
-                                    <input type="text" placeholder="Назва події" autoFocus className="w-full text-2xl font-light border-b-2 border-gray-100 focus:border-blue-600 outline-none mb-8 py-2 transition-all" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
-                                    <div className="grid grid-cols-2 gap-8 mb-8">
-                                        <div className="space-y-3">
-                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Початок</div>
-                                            <input type="date" className="w-full text-sm bg-gray-50 p-2 rounded-lg" value={newEvent.startDate} onChange={e => setNewEvent({...newEvent, startDate: e.target.value})} />
-                                            <input type="time" className="w-full text-sm bg-gray-50 p-2 rounded-lg" value={newEvent.startTime} onChange={e => setNewEvent({...newEvent, startTime: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Кінець</div>
-                                            <input type="date" className="w-full text-sm bg-gray-50 p-2 rounded-lg" value={newEvent.endDate} onChange={e => setNewEvent({...newEvent, endDate: e.target.value})} />
-                                            <input type="time" className="w-full text-sm bg-gray-50 p-2 rounded-lg" value={newEvent.endTime} onChange={e => setNewEvent({...newEvent, endTime: e.target.value})} />
-                                        </div>
-                                    </div>
-                                    {!isTimeValid && newEvent.title && <div className="text-red-500 text-[10px] font-bold mb-4">⚠️ Помилка: Час закінчення має бути пізнішим</div>}
-                                </div>
-                                <div className="bg-gray-50 px-8 py-6 flex justify-end gap-3">
-                                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-sm font-medium text-gray-500 hover:text-gray-800">Скасувати</button>
-                                    <button 
-                                        disabled={!isTimeValid || !newEvent.title}
-                                        onClick={() => { setEvents([...events, {...newEvent, id: Date.now()}]); setIsModalOpen(false); }}
-                                        className={`px-10 py-2 rounded-full text-white text-sm font-medium shadow-lg transition-all ${isTimeValid && newEvent.title ? 'bg-blue-600 hover:bg-blue-700 active:scale-95' : 'bg-gray-300'}`}>
-                                        Зберегти
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         };
