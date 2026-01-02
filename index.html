@@ -3,240 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spiral Calendar Pro - Spatial Labels</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <title>Spiral Calendar Pro - Final Stable</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Roboto', sans-serif; background: #fff; margin: 0; overflow: hidden; }
-        .google-shadow { box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15); }
-        canvas { outline: none; }
+        body, html, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #fff; }
+        canvas { display: block; }
+        .date-label {
+            position: absolute; pointer-events: none;
+            background: rgba(255, 255, 255, 0.9); padding: 2px 6px;
+            border-radius: 4px; border: 1px solid #1a73e8;
+            color: #1a73e8; font-size: 11px; font-weight: bold;
+            transform: translate(-50%, -50%); z-index: 10;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 4px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useEffect, useCallback } = React;
+        const { useState, useEffect, useRef, useCallback } = React;
 
-        // Функція для створення тексту як текстури для спрайтів
-        const createTextLabel = (text) => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 256;
-            canvas.height = 128;
-            
-            ctx.fillStyle = 'rgba(255, 255, 255, 0)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.font = 'Bold 40px Roboto, Arial';
-            ctx.fillStyle = '#1a73e8';
-            ctx.textAlign = 'center';
-            ctx.fillText(text, 128, 64);
-            
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-            const sprite = new THREE.Sprite(spriteMaterial);
-            sprite.scale.set(4, 2, 1);
-            return sprite;
-        };
-
-        const SpiralCalendar = () => {
+        const App = () => {
             const mountRef = useRef(null);
-            const controlsRef = useRef(null);
-            const cameraRef = useRef(null);
-            
-            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_v5')) || []);
-            const [viewDays, setViewDays] = useState(5);
-            const [spiralH, setSpiralH] = useState(14);
-            const [selectedEvent, setSelectedEvent] = useState(null);
+            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_db')) || []);
             const [isModalOpen, setIsModalOpen] = useState(false);
+            const [selectedEvent, setSelectedEvent] = useState(null);
+            const [labels, setLabels] = useState([]);
+            
+            const viewDays = 5;
+            const spiralH = 12;
             const radius = 8;
 
+            // Математика позиціонування
             const getPos = useCallback((date, h, days) => {
-                const startOfView = new Date();
-                startOfView.setHours(0,0,0,0);
+                const now = new Date();
+                const startOfView = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const diffHours = (date - startOfView) / (1000 * 3600);
                 const angle = (diffHours / 24) * 2 * Math.PI;
                 const yPos = (h * days / 2) - (diffHours / 24) * h;
                 return new THREE.Vector3(Math.cos(angle) * radius, yPos, Math.sin(angle) * radius);
-            }, [radius]);
-
-            const focusOnEvent = (ev) => {
-                if (!ev || !controlsRef.current) return;
-                const start = new Date(`${ev.startDate}T${ev.startTime}`);
-                const end = new Date(`${ev.endDate}T${ev.endTime}`);
-                const midDate = new Date((start.getTime() + end.getTime()) / 2);
-                const targetPos = getPos(midDate, spiralH, viewDays);
-
-                const startTarget = controlsRef.current.target.clone();
-                const startTime = performance.now();
-                const animate = (now) => {
-                    const t = Math.min((now - startTime) / 800, 1);
-                    controlsRef.current.target.lerpVectors(startTarget, targetPos, t * (2 - t));
-                    if (t < 1) requestAnimationFrame(animate);
-                };
-                requestAnimationFrame(animate);
-                setSelectedEvent(ev);
-            };
+            }, []);
 
             useEffect(() => {
-                const container = mountRef.current;
+                if (!mountRef.current) return;
+                console.log("Initializing Three.js...");
+
                 const scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xffffff);
+                
+                const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
+                camera.position.set(20, 20, 20);
 
-                const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-                camera.position.set(25, 20, 25);
-                cameraRef.current = camera;
-
-                const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-                renderer.setSize(container.clientWidth, container.clientHeight);
-                container.appendChild(renderer.domElement);
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                mountRef.current.appendChild(renderer.domElement);
 
                 const controls = new THREE.OrbitControls(camera, renderer.domElement);
                 controls.enableDamping = true;
-                controlsRef.current = controls;
 
                 scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-                
-                // Вісь та Спіраль
+                const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+                sun.position.set(10, 20, 10);
+                scene.add(sun);
+
+                // Вісь
                 const axis = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.02, 0.02, spiralH * viewDays + 10, 8),
-                    new THREE.MeshBasicMaterial({ color: '#e8eaed' })
+                    new THREE.CylinderGeometry(0.02, 0.02, spiralH * viewDays + 2, 8),
+                    new THREE.MeshBasicMaterial({ color: '#e0e0e0' })
                 );
                 scene.add(axis);
 
+                // Створення спіралі та міток
+                const tempLabels = [];
                 for (let h = 0; h <= 24 * viewDays; h++) {
                     const d = new Date(); d.setHours(h, 0, 0, 0);
                     const pos = getPos(d, spiralH, viewDays);
                     
-                    // Поділки годин
+                    if (h % 24 === 0) {
+                        const ring = new THREE.Mesh(
+                            new THREE.TorusGeometry(radius, 0.01, 8, 64),
+                            new THREE.MeshBasicMaterial({ color: '#1a73e8', transparent: true, opacity: 0.1 })
+                        );
+                        ring.position.y = pos.y;
+                        ring.rotation.x = Math.PI/2;
+                        scene.add(ring);
+                        tempLabels.push({ text: d.toLocaleDateString('uk-UA', {day:'numeric', month:'short'}), pos3d: pos.clone() });
+                    }
+
                     const tick = new THREE.Mesh(
-                        new THREE.BoxGeometry(h % 24 === 0 ? 1.2 : 0.6, 0.05, 0.05),
-                        new THREE.MeshBasicMaterial({ color: h % 24 === 0 ? '#1a73e8' : '#dadce0' })
+                        new THREE.BoxGeometry(h % 24 === 0 ? 1 : 0.5, 0.05, 0.05),
+                        new THREE.MeshBasicMaterial({ color: h % 24 === 0 ? '#1a73e8' : '#ddd' })
                     );
                     tick.position.copy(pos);
                     tick.rotation.y = -(h / 24) * 2 * Math.PI;
                     scene.add(tick);
-
-                    // Розділювачі днів та МІТКИ ДАТИ
-                    if (h % 24 === 0) {
-                        // Кільце
-                        const ring = new THREE.Mesh(
-                            new THREE.TorusGeometry(radius + 0.3, 0.01, 8, 64),
-                            new THREE.MeshBasicMaterial({ color: '#1a73e8', transparent: true, opacity: 0.15 })
-                        );
-                        ring.position.y = pos.y;
-                        ring.rotation.x = Math.PI / 2;
-                        scene.add(ring);
-
-                        // Текстова мітка (Sprite)
-                        const dateLabel = d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
-                        const sprite = createTextLabel(dateLabel);
-                        sprite.position.set(pos.x + 2, pos.y + 0.8, pos.z + 2); // Трохи зміщено від осі
-                        scene.add(sprite);
-                    }
                 }
+                setLabels(tempLabels);
 
-                // Події
-                const eventMeshes = [];
+                // Рендеринг подій
+                const meshes = [];
                 events.forEach(ev => {
-                    const start = new Date(`${ev.startDate}T${ev.startTime}`);
-                    const end = new Date(`${ev.endDate}T${ev.endTime}`);
-                    const pts = [];
-                    for(let i=0; i<=12; i++) pts.push(getPos(new Date(start.getTime() + (end-start)*(i/12)), spiralH, viewDays));
-                    
-                    const tube = new THREE.Mesh(
-                        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 32, 0.35, 12, false),
-                        new THREE.MeshPhongMaterial({ color: ev.color, shininess: 80 })
-                    );
-                    tube.userData = ev;
-                    scene.add(tube);
-                    eventMeshes.push(tube);
+                    try {
+                        const start = new Date(`${ev.startDate}T${ev.startTime}`);
+                        const end = new Date(`${ev.endDate}T${ev.endTime}`);
+                        const points = [];
+                        for(let i=0; i<=10; i++) points.push(getPos(new Date(start.getTime() + (end-start)*(i/10)), spiralH, viewDays));
+                        const curve = new THREE.CatmullRomCurve3(points);
+                        const tube = new THREE.Mesh(
+                            new THREE.TubeGeometry(curve, 20, 0.3, 8, false),
+                            new THREE.MeshPhongMaterial({ color: ev.color })
+                        );
+                        tube.userData = ev;
+                        scene.add(tube);
+                        meshes.push(tube);
+                    } catch(e) { console.error("Event error", e); }
                 });
-
-                const nowMarker = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.5, 32, 32),
-                    new THREE.MeshPhongMaterial({ color: '#ea4335', emissive: '#ea4335', emissiveIntensity: 0.5 })
-                );
-                scene.add(nowMarker);
 
                 const raycaster = new THREE.Raycaster();
                 const mouse = new THREE.Vector2();
-                const onClick = (e) => {
-                    const rect = container.getBoundingClientRect();
-                    mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
-                    mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+                const onDown = (e) => {
+                    const rect = mountRef.current.getBoundingClientRect();
+                    mouse.x = ((e.clientX - rect.left) / mountRef.current.clientWidth) * 2 - 1;
+                    mouse.y = -((e.clientY - rect.top) / mountRef.current.clientHeight) * 2 + 1;
                     raycaster.setFromCamera(mouse, camera);
-                    const intersects = raycaster.intersectObjects(eventMeshes);
-                    if(intersects.length > 0) focusOnEvent(intersects[0].object.userData);
+                    const hits = raycaster.intersectObjects(meshes);
+                    if(hits.length > 0) setSelectedEvent(hits[0].object.userData);
                 };
-                container.addEventListener('mousedown', onClick);
+                mountRef.current.addEventListener('mousedown', onDown);
 
                 const animate = () => {
-                    requestAnimationFrame(animate);
+                    const frame = requestAnimationFrame(animate);
                     controls.update();
-                    nowMarker.position.copy(getPos(new Date(), spiralH, viewDays));
+                    
+                    // Оновлення 2D міток
+                    const elements = document.querySelectorAll('.date-label');
+                    tempLabels.forEach((l, i) => {
+                        const p = l.pos3d.clone().project(camera);
+                        const el = elements[i];
+                        if (el) {
+                            el.style.left = `${(p.x + 1) * mountRef.current.clientWidth / 2}px`;
+                            el.style.top = `${(-p.y + 1) * mountRef.current.clientHeight / 2}px`;
+                            el.style.display = p.z > 1 ? 'none' : 'block';
+                        }
+                    });
+                    
                     renderer.render(scene, camera);
                 };
                 animate();
 
                 return () => {
+                    console.log("Cleanup...");
+                    mountRef.current?.removeEventListener('mousedown', onDown);
                     renderer.dispose();
-                    container.removeEventListener('mousedown', onClick);
+                    if (mountRef.current?.contains(renderer.domElement)) mountRef.current.removeChild(renderer.domElement);
+                    cancelAnimationFrame(animate);
                 };
-            }, [events, viewDays, spiralH, getPos]);
+            }, [events]);
 
-            useEffect(() => { localStorage.setItem('spiral_v5', JSON.stringify(events)); }, [events]);
+            useEffect(() => { localStorage.setItem('spiral_db', JSON.stringify(events)); }, [events]);
+
+            const saveEvent = (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const newEv = {
+                    id: Date.now(),
+                    title: formData.get('title'),
+                    startDate: formData.get('startDate'),
+                    startTime: formData.get('startTime'),
+                    endDate: formData.get('endDate'),
+                    endTime: formData.get('endTime'),
+                    color: formData.get('color')
+                };
+                setEvents([...events, newEv]);
+                setIsModalOpen(false);
+            };
 
             return (
-                <div className="flex h-screen w-full bg-white overflow-hidden select-none">
-                    <aside className="w-80 border-r flex flex-col p-6 z-10 bg-white">
-                        <div className="flex items-center gap-3 mb-10">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg shadow-lg flex items-center justify-center text-white font-bold">G</div>
-                            <h1 className="text-xl font-medium text-gray-700">Spiral Pro</h1>
+                <div className="flex h-full w-full">
+                    {/* Sidebar */}
+                    <aside className="w-80 border-r p-6 flex flex-col bg-white">
+                        <div className="text-2xl font-bold text-blue-600 mb-8 flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-600 rounded"></div> Spiral
                         </div>
                         
-                        <button onClick={() => setIsModalOpen(true)} className="w-fit px-6 py-3 rounded-full google-shadow border flex items-center gap-3 hover:bg-gray-50 active:scale-95 transition-all mb-8">
-                            <span className="text-2xl text-blue-600 font-light">+</span>
-                            <span className="text-sm font-medium">Створити</span>
+                        <button 
+                            onClick={() => { console.log("Opening modal..."); setIsModalOpen(true); }}
+                            className="w-full py-3 bg-white border border-gray-200 shadow-sm rounded-full text-sm font-medium hover:bg-gray-50 transition-all mb-8"
+                        >
+                            + Створити подію
                         </button>
 
-                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Наступні події</p>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-4 tracking-widest">Твій список</p>
                             {events.map(ev => (
-                                <div key={ev.id} onClick={() => focusOnEvent(ev)} className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedEvent?.id === ev.id ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
+                                <div key={ev.id} onClick={() => setSelectedEvent(ev)} className="p-3 mb-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <div className="w-2.5 h-2.5 rounded-full" style={{background: ev.color}}></div>
-                                        <div className="text-sm font-bold text-gray-800 truncate">{ev.title}</div>
+                                        <div className="w-2 h-2 rounded-full" style={{background: ev.color}}></div>
+                                        <div className="text-sm font-bold truncate">{ev.title}</div>
                                     </div>
-                                    <div className="text-[10px] text-gray-500 font-medium tracking-tight">📅 {ev.startDate} • {ev.startTime}</div>
+                                    <div className="text-[10px] text-gray-500">{ev.startDate} • {ev.startTime}</div>
                                 </div>
                             ))}
                         </div>
                     </aside>
 
-                    <main className="flex-1 relative bg-[#f8f9fa]">
-                        <div ref={mountRef} className="w-full h-full"></div>
+                    {/* Main */}
+                    <main className="flex-1 relative">
+                        <div ref={mountRef} className="w-full h-full relative">
+                            {labels.map((l, i) => (
+                                <div key={i} className="date-label">{l.text}</div>
+                            ))}
+                        </div>
 
                         {selectedEvent && (
-                            <div className="absolute top-10 right-10 bg-white/90 backdrop-blur rounded-3xl shadow-2xl p-6 border border-white w-72 animate-in slide-in-from-right-4">
-                                <h3 className="text-xl font-bold text-gray-900 mb-2">{selectedEvent.title}</h3>
-                                <p className="text-xs text-gray-500 mb-6">{selectedEvent.startDate} | {selectedEvent.startTime} - {selectedEvent.endTime}</p>
-                                <button onClick={() => setEvents(events.filter(e => e.id !== selectedEvent.id))} className="w-full py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">ВИДАЛИТИ</button>
+                            <div className="absolute top-10 right-10 bg-white p-6 rounded-2xl shadow-2xl border w-72 z-50">
+                                <h3 className="text-xl font-bold mb-2">{selectedEvent.title}</h3>
+                                <p className="text-xs text-gray-500 mb-6">{selectedEvent.startDate} | {selectedEvent.startTime}</p>
+                                <button onClick={() => { setEvents(events.filter(e => e.id !== selectedEvent.id)); setSelectedEvent(null); }} className="w-full py-2 bg-red-50 text-red-500 rounded-lg text-xs font-bold">Видалити</button>
+                                <button onClick={() => setSelectedEvent(null)} className="w-full mt-2 text-xs text-gray-400">Закрити</button>
                             </div>
                         )}
                     </main>
+
+                    {/* Modal */}
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center">
+                            <form onSubmit={saveEvent} className="bg-white rounded-[32px] p-8 w-full max-w-md shadow-2xl">
+                                <h2 className="text-xl font-bold mb-6">Нова подія</h2>
+                                <input name="title" required placeholder="Назва" className="w-full border-b-2 py-2 mb-6 outline-none focus:border-blue-600 text-xl font-light" />
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <input name="startDate" type="date" required className="bg-gray-50 p-2 rounded" defaultValue={new Date().toISOString().split('T')[0]} />
+                                    <input name="startTime" type="time" required className="bg-gray-50 p-2 rounded" defaultValue="10:00" />
+                                    <input name="endDate" type="date" required className="bg-gray-50 p-2 rounded" defaultValue={new Date().toISOString().split('T')[0]} />
+                                    <input name="endTime" type="time" required className="bg-gray-50 p-2 rounded" defaultValue="11:00" />
+                                </div>
+                                <select name="color" className="w-full bg-gray-50 p-2 rounded mb-8">
+                                    <option value="#1a73e8">Синій</option>
+                                    <option value="#d50000">Червоний</option>
+                                    <option value="#f4b400">Жовтий</option>
+                                    <option value="#0b8043">Зелений</option>
+                                </select>
+                                <div className="flex justify-end gap-4">
+                                    <button type="button" onClick={() => setIsModalOpen(false)} className="text-sm text-gray-500">Скасувати</button>
+                                    <button type="submit" className="px-8 py-2 bg-blue-600 text-white rounded-full text-sm font-medium">Зберегти</button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
                 </div>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<SpiralCalendar />);
+        root.render(<App />);
     </script>
 </body>
 </html>
