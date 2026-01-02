@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Spiral v3 - Raycasting & Interaction</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; background: #05070a; font-family: 'Plus Jakarta Sans', sans-serif; }
+        #time-panel { transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: translateY(150%); opacity: 0; }
+        #time-panel.active { transform: translateY(0); opacity: 1; }
+        canvas { cursor: crosshair; }
+    </style>
+</head>
+<body>
+    <div class="absolute top-10 left-10 z-10 pointer-events-none">
+        <h1 class="text-white text-3xl font-black italic tracking-tighter uppercase">Interaction V3</h1>
+        <p class="text-cyan-400 font-mono text-xs tracking-widest uppercase opacity-70">Клікніть на спіраль для вибору часу</p>
+    </div>
+
+    <div id="time-panel" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-20 bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-[40px] flex items-center gap-10 shadow-2xl">
+        <div>
+            <p class="text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-1">Точка фокусу</p>
+            <p id="display-time" class="text-2xl font-extrabold text-white">--:--</p>
+        </div>
+        <button onclick="alert('Логіку створення події буде додано у V4!')" class="bg-white text-black px-8 py-4 rounded-3xl font-black text-xs uppercase hover:bg-cyan-400 transition-colors">
+            Створити подію
+        </button>
+    </div>
+
+    <script>
+        const CONFIG = { radius: 8, dayHeight: 12, baseDate: new Date().setHours(0,0,0,0) };
+        
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(20, 15, 20);
+        controls.enableDamping = true;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        const light = new THREE.DirectionalLight(0x22d3ee, 1);
+        light.position.set(10, 20, 10);
+        scene.add(light);
+
+        // --- МАТЕМАТИКА ---
+        function dateToPos(date) {
+            const hrs = (date - CONFIG.baseDate) / 3600000;
+            const angle = (hrs / 24) * Math.PI * 2;
+            const y = (hrs / 24) * CONFIG.dayHeight;
+            return new THREE.Vector3(Math.cos(angle) * CONFIG.radius, y, Math.sin(angle) * CONFIG.radius);
+        }
+
+        function posToDate(y, angle) {
+            let normAngle = angle % (Math.PI * 2);
+            if (normAngle < 0) normAngle += Math.PI * 2;
+            const totalHrs = (y / CONFIG.dayHeight) * 24;
+            return new Date(CONFIG.baseDate + totalHrs * 3600000);
+        }
+
+        // --- СПІРАЛЬ ---
+        const points = [];
+        for (let h = 0; h < 24 * 7; h += 0.1) points.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
+        const curve = new THREE.CatmullRomCurve3(points);
+        
+        // Візуальна частина
+        const visualSpiral = new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 600, 0.08, 8, false),
+            new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x0ea5e9, emissiveIntensity: 0.2 })
+        );
+        scene.add(visualSpiral);
+
+        // Детектор кліків (широкий та невидимий)
+        const hitZone = new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 600, 0.8, 8, false),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        scene.add(hitZone);
+
+        // Сфера-маркер вибору
+        const marker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.35, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+        );
+        marker.visible = false;
+        scene.add(marker);
+
+        // Кільце "ЗАРАЗ"
+        const nowRing = new THREE.Mesh(
+            new THREE.TorusGeometry(CONFIG.radius, 0.1, 12, 100),
+            new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+        );
+        nowRing.rotation.x = Math.PI/2;
+        scene.add(nowRing);
+
+        // --- INTERACTION LOGIC ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('mousedown', (e) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(hitZone);
+
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                const angle = Math.atan2(point.z, point.x);
+                const selectedDate = posToDate(point.y, angle);
+                
+                marker.position.copy(point);
+                marker.visible = true;
+                
+                document.getElementById('display-time').innerText = selectedDate.toLocaleString('uk-UA', { 
+                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                });
+                document.getElementById('time-panel').classList.add('active');
+            } else {
+                document.getElementById('time-panel').classList.remove('active');
+                marker.visible = false;
+            }
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            nowRing.position.y = dateToPos(new Date()).y;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
