@@ -3,277 +3,226 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spiral Calendar Pro - Master Build</title>
+    <title>Spiral Calendar Pro - Master Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body, html, #root { height: 100vh; margin: 0; background: #ffffff; overflow: hidden; font-family: 'Inter', sans-serif; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff; margin: 0; overflow: hidden; }
         canvas { outline: none; }
-        .date-label {
+        /* Стиль міток зі Скріншоту 2/3 */
+        .spatial-label {
             position: absolute; pointer-events: none; transform: translate(-50%, -50%);
-            background: white; padding: 4px 10px; border-radius: 8px; border: 1px solid #1a73e8;
-            color: #1a73e8; font-size: 11px; font-weight: 800; z-index: 10;
-            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15); transition: opacity 0.3s;
+            background: white; padding: 4px 12px; border-radius: 8px;
+            border: 1.5px solid #1a73e8; color: #1a73e8; font-size: 12px; font-weight: 700;
+            z-index: 10; box-shadow: 0 4px 12px rgba(26, 115, 232, 0.1);
         }
-        .google-shadow { box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15); }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e8eaed; border-radius: 10px; }
+        /* Ефект скляної картки зі Скріншоту 6 */
+        .modal-glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 48px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+        .sidebar-item { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar-item:hover { transform: translateX(5px); }
+        input[type="date"], input[type="time"] { border: none; background: #f8f9fa; border-radius: 16px; padding: 12px; font-weight: 600; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+        const { useState, useEffect, useRef, useCallback } = React;
 
         const SpiralCalendar = () => {
             const mountRef = useRef(null);
-            const controlsRef = useRef(null);
-            const cameraRef = useRef(null);
-            
-            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_pro_v1')) || []);
-            const [selectedEvent, setSelectedEvent] = useState(null);
+            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_v8')) || []);
             const [isModalOpen, setIsModalOpen] = useState(false);
+            const [selectedEvent, setSelectedEvent] = useState(null);
             const [labels, setLabels] = useState([]);
-            const [viewDays, setViewDays] = useState(5);
+            
+            const spiralH = 12, viewDays = 6, radius = 8;
 
-            const spiralH = 12;
-            const radius = 8;
-
-            // --- МАТЕМАТИКА ---
             const getPos = useCallback((date) => {
-                const now = new Date();
-                const startOfView = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const diffHours = (date - startOfView) / (1000 * 3600);
-                const angle = (diffHours / 24) * 2 * Math.PI;
-                const yPos = (spiralH * viewDays / 2) - (diffHours / 24) * spiralH;
-                return new THREE.Vector3(Math.cos(angle) * radius, yPos, Math.sin(angle) * radius);
-            }, [viewDays]);
+                const now = new Date(); now.setHours(0,0,0,0);
+                const diff = (date - now) / 3600000;
+                const angle = (diff / 24) * 2 * Math.PI;
+                const y = (spiralH * viewDays / 2) - (diff / 24) * spiralH;
+                return new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+            }, []);
 
-            // --- ФОКУСУВАННЯ КАМЕРИ ---
-            const focusOn = (ev) => {
-                if (!ev || !controlsRef.current) return;
-                const date = new Date(`${ev.date}T${ev.time}`);
-                const target = getPos(date);
-                
-                const startT = controlsRef.current.target.clone();
-                const startTime = performance.now();
-                
-                const animate = (now) => {
-                    const t = Math.min((now - startTime) / 800, 1);
-                    const eased = t * (2 - t);
-                    controlsRef.current.target.lerpVectors(startT, target, eased);
-                    if (t < 1) requestAnimationFrame(animate);
-                };
-                requestAnimationFrame(animate);
-                setSelectedEvent(ev);
-            };
-
-            // --- ЯДРО THREE.JS ---
             useEffect(() => {
-                const container = mountRef.current;
                 const scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xffffff);
-
-                const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-                camera.position.set(25, 20, 25);
-                cameraRef.current = camera;
-
+                const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(20, 15, 20);
+                
                 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                renderer.setSize(container.clientWidth, container.clientHeight);
+                renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setPixelRatio(window.devicePixelRatio);
-                container.appendChild(renderer.domElement);
+                mountRef.current.appendChild(renderer.domElement);
 
                 const controls = new THREE.OrbitControls(camera, renderer.domElement);
                 controls.enableDamping = true;
-                controlsRef.current = controls;
-
-                // Світло
                 scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-                const sun = new THREE.DirectionalLight(0xffffff, 0.4);
-                sun.position.set(10, 20, 10);
-                scene.add(sun);
 
-                // Вісь та Поділки
-                const tempLabels = [];
-                const axis = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, spiralH * viewDays + 10, 8), new THREE.MeshBasicMaterial({color: '#f1f3f4'}));
+                // Створення спіралі та вісі (Скріншот 1)
+                const axis = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 100, 8), new THREE.MeshBasicMaterial({color: '#eee'}));
                 scene.add(axis);
 
-                for (let h = 0; h <= 24 * viewDays; h++) {
-                    const d = new Date(); d.setHours(h, 0, 0, 0);
+                const newLabels = [];
+                for(let i=0; i <= 24 * viewDays; i++) {
+                    const d = new Date(); d.setHours(i, 0, 0, 0);
                     const pos = getPos(d);
-                    
-                    if (h % 24 === 0) {
-                        const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.005, 8, 100), new THREE.MeshBasicMaterial({color: '#1a73e8', transparent: true, opacity: 0.1}));
+                    if (i % 24 === 0) {
+                        const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 0.005, 8, 100), new THREE.MeshBasicMaterial({color: '#1a73e8', transparent: true, opacity: 0.1}));
                         ring.position.y = pos.y; ring.rotation.x = Math.PI/2;
                         scene.add(ring);
-                        tempLabels.push({ text: d.toLocaleDateString('uk-UA', {day:'numeric', month:'short'}), pos3d: pos.clone() });
+                        newLabels.push({ text: d.toLocaleDateString('uk-UA', {day:'numeric', month:'short'}), pos3d: pos.clone() });
                     }
-                    const tick = new THREE.Mesh(new THREE.BoxGeometry(h % 24 === 0 ? 1 : 0.5, 0.02, 0.02), new THREE.MeshBasicMaterial({color: h % 24 === 0 ? '#1a73e8' : '#dadce0'}));
-                    tick.position.copy(pos); tick.rotation.y = -(h / 24) * 2 * Math.PI;
+                    // Малі поділки годин
+                    const tick = new THREE.Mesh(new THREE.BoxGeometry(i%24===0?1.2:0.6, 0.03, 0.03), new THREE.MeshBasicMaterial({color: i%24===0?'#1a73e8':'#e0e0e0'}));
+                    tick.position.copy(pos); tick.rotation.y = -(i/24)*2*Math.PI;
                     scene.add(tick);
                 }
-                setLabels(tempLabels);
+                setLabels(newLabels);
 
-                // Події (з ефектом прогресу)
-                const nowTime = new Date();
-                const meshes = [];
+                // Події як 3D об'єкти (Скріншот 2)
+                const eventGroup = new THREE.Group();
                 events.forEach(ev => {
-                    const start = new Date(`${ev.date}T${ev.time}`);
-                    const isPast = start < nowTime;
-                    
+                    const s = new Date(`${ev.date}T${ev.time}`);
+                    const e = new Date(s.getTime() + 3600000);
                     const pts = [];
-                    for(let i=0; i<=10; i++) pts.push(getPos(new Date(start.getTime() + (3600000)*(i/10))));
-                    
+                    for(let j=0; j<=10; j++) pts.push(getPos(new Date(s.getTime() + (e-s)*(j/10))));
                     const tube = new THREE.Mesh(
                         new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.4, 8, false),
-                        new THREE.MeshPhongMaterial({ 
-                            color: ev.color, 
-                            transparent: true, 
-                            opacity: isPast ? 0.3 : 1.0, // Минуле затінюється
-                            shininess: isPast ? 0 : 100 
-                        })
+                        new THREE.MeshPhongMaterial({ color: ev.color, transparent: true, opacity: s < new Date() ? 0.3 : 1 })
                     );
                     tube.userData = ev;
-                    scene.add(tube);
-                    meshes.push(tube);
+                    eventGroup.add(tube);
                 });
-
-                // Маркер "Зараз"
-                const nowMarker = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), new THREE.MeshBasicMaterial({color: '#ea4335'}));
-                scene.add(nowMarker);
+                scene.add(eventGroup);
 
                 const raycaster = new THREE.Raycaster();
                 const onDown = (e) => {
-                    const rect = container.getBoundingClientRect();
-                    const mouse = new THREE.Vector2(((e.clientX - rect.left)/container.clientWidth)*2-1, -((e.clientY - rect.top)/container.clientHeight)*2+1);
-                    raycaster.setFromCamera(mouse, camera);
-                    const hits = raycaster.intersectObjects(meshes);
-                    if(hits.length > 0) focusOn(hits[0].object.userData);
+                    const m = new THREE.Vector2((e.clientX/window.innerWidth)*2-1, -(e.clientY/window.innerHeight)*2+1);
+                    raycaster.setFromCamera(m, camera);
+                    const hits = raycaster.intersectObjects(eventGroup.children);
+                    if(hits.length > 0) setSelectedEvent(hits[0].object.userData);
                 };
-                container.addEventListener('mousedown', onDown);
+                window.addEventListener('mousedown', onDown);
 
                 const animate = () => {
                     requestAnimationFrame(animate);
                     controls.update();
-                    nowMarker.position.copy(getPos(new Date()));
-                    
-                    // Проекція 2D міток
-                    const els = document.querySelectorAll('.date-label');
-                    tempLabels.forEach((l, i) => {
+                    const labelEls = document.querySelectorAll('.spatial-label');
+                    newLabels.forEach((l, idx) => {
                         const p = l.pos3d.clone().project(camera);
-                        if(els[i]) {
-                            els[i].style.left = `${(p.x + 1) * container.clientWidth / 2}px`;
-                            els[i].style.top = `${(-p.y + 1) * container.clientHeight / 2}px`;
-                            els[i].style.opacity = p.z > 1 ? 0 : 1;
+                        if(labelEls[idx]) {
+                            labelEls[idx].style.left = `${(p.x + 1) * window.innerWidth / 2}px`;
+                            labelEls[idx].style.top = `${(-p.y + 1) * window.innerHeight / 2}px`;
+                            labelEls[idx].style.display = p.z > 1 ? 'none' : 'block';
                         }
                     });
                     renderer.render(scene, camera);
                 };
                 animate();
 
-                return () => { 
-                    renderer.dispose(); 
-                    container.removeEventListener('mousedown', onDown);
-                    if(container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
-                };
-            }, [events, viewDays]);
+                return () => { renderer.dispose(); window.removeEventListener('mousedown', onDown); };
+            }, [events]);
 
-            useEffect(() => localStorage.setItem('spiral_pro_v1', JSON.stringify(events)), [events]);
+            useEffect(() => localStorage.setItem('spiral_v8', JSON.stringify(events)), [events]);
 
             return (
-                <div className="flex h-full w-full">
-                    {/* Sidebar */}
-                    <aside className="w-80 border-r p-6 flex flex-col bg-white z-20">
-                        <div className="flex items-center gap-3 mb-10">
-                            <div className="w-9 h-9 bg-blue-600 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center text-white font-black italic">S</div>
-                            <span className="text-xl font-bold tracking-tighter text-gray-800">Spiral Pro</span>
+                <div className="flex h-screen w-full select-none">
+                    {/* Бічна панель (Скріншот 2/3) */}
+                    <aside className="w-80 border-r p-8 flex flex-col bg-white z-20">
+                        <div className="flex items-center gap-3 mb-12">
+                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+                                <span className="text-white font-black">S</span>
+                            </div>
+                            <span className="text-2xl font-extrabold tracking-tighter text-gray-900">Spiral</span>
                         </div>
                         
-                        <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center gap-3 py-4 rounded-full google-shadow border border-gray-100 hover:bg-gray-50 mb-10 transition-all active:scale-95 group">
-                            <span className="text-2xl text-blue-600 font-light transition-transform group-hover:rotate-90">+</span>
-                            <span className="font-bold text-sm text-gray-700">Створити подію</span>
+                        <button onClick={() => setIsModalOpen(true)} className="w-full py-4 bg-white border border-gray-100 rounded-full shadow-md hover:shadow-xl transition-all font-bold text-sm text-gray-700 mb-12">
+                           + Створити подію
                         </button>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Твій таймлайн</p>
-                            {events.sort((a,b) => new Date(a.date) - new Date(b.date)).map(ev => (
-                                <div key={ev.id} onClick={() => focusOn(ev)} className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedEvent?.id === ev.id ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="w-2.5 h-2.5 rounded-full" style={{background: ev.color}}></div>
-                                        <div className="text-sm font-bold text-gray-800 truncate">{ev.title}</div>
+                        <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Твій список</h4>
+                            {events.map(ev => (
+                                <div key={ev.id} onClick={() => setSelectedEvent(ev)} className="sidebar-item p-4 bg-gray-50 rounded-2xl cursor-pointer hover:bg-blue-50 group">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-3 h-3 rounded-full" style={{background: ev.color}}></div>
+                                        <div className="font-bold text-gray-800 truncate text-sm">{ev.title}</div>
                                     </div>
-                                    <div className="text-[10px] text-gray-400 font-bold uppercase">{ev.date} • {ev.time}</div>
+                                    <div className="text-[10px] text-gray-400 mt-1 ml-6">{ev.date} • {ev.time}</div>
                                 </div>
                             ))}
                         </div>
-
-                        <div className="mt-6 pt-6 border-t">
-                            <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase mb-4">
-                                <span>Глибина огляду</span>
-                                <span className="text-blue-600">{viewDays} дн.</span>
-                            </div>
-                            <input type="range" min="1" max="14" value={viewDays} onChange={e => setViewDays(Number(e.target.value))} className="w-full accent-blue-600" />
-                        </div>
                     </aside>
 
-                    {/* Scene */}
-                    <main className="flex-1 relative bg-[#fcfcfc]">
-                        <div ref={mountRef} className="w-full h-full relative">
-                            {labels.map((l, i) => <div key={i} className="date-label">{l.text}</div>)}
+                    {/* Основна 3D сцена */}
+                    <main className="flex-1 relative">
+                        <div ref={mountRef} className="w-full h-full relative overflow-hidden">
+                            {labels.map((l, i) => <div key={i} className="spatial-label">{l.text}</div>)}
                         </div>
 
+                        {/* Картка події (Скріншот 2) */}
                         {selectedEvent && (
-                            <div className="absolute top-10 right-10 bg-white/90 backdrop-blur-xl p-8 rounded-[32px] shadow-2xl border border-white w-80 animate-in fade-in slide-in-from-right-4">
-                                <h3 className="text-2xl font-black text-gray-900 mb-2 leading-tight">{selectedEvent.title}</h3>
-                                <p className="text-sm text-gray-500 mb-8 font-medium">Початок о {selectedEvent.time}, {selectedEvent.date}</p>
-                                <div className="flex gap-3">
-                                    <button onClick={() => {setEvents(events.filter(e => e.id !== selectedEvent.id)); setSelectedEvent(null);}} className="flex-1 py-3 bg-red-50 text-red-600 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-100 transition-colors">Видалити</button>
-                                    <button onClick={() => setSelectedEvent(null)} className="flex-1 py-3 bg-gray-100 text-gray-500 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-colors">Закрити</button>
+                            <div className="absolute top-10 right-10 bg-white/90 backdrop-blur-xl p-8 rounded-[40px] shadow-2xl border border-white w-80 animate-in slide-in-from-right-4 z-30">
+                                <h3 className="text-2xl font-black text-gray-900 mb-2">{selectedEvent.title}</h3>
+                                <p className="text-sm text-gray-400 mb-8 font-semibold italic">{selectedEvent.date} о {selectedEvent.time}</p>
+                                <div className="flex gap-2">
+                                    <button onClick={() => {setEvents(events.filter(e => e.id !== selectedEvent.id)); setSelectedEvent(null);}} className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100">Видалити</button>
+                                    <button onClick={() => setSelectedEvent(null)} className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-[10px] uppercase tracking-widest">Закрити</button>
                                 </div>
                             </div>
                         )}
                     </main>
 
-                    {/* Modal */}
+                    {/* Модальне вікно (Скріншот 6) */}
                     {isModalOpen && (
-                        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                const fd = new FormData(e.target);
-                                setEvents([...events, {id: Date.now(), title: fd.get('t'), date: fd.get('d'), time: fd.get('tm'), color: fd.get('c')}]);
-                                setIsModalOpen(false);
-                            }} className="bg-white rounded-[40px] p-10 w-full max-w-md shadow-2xl animate-in zoom-in-95">
-                                <h2 className="text-3xl font-black mb-10 text-gray-800 tracking-tighter">Нова подія</h2>
-                                <input name="t" required placeholder="Назва події" className="w-full text-2xl font-light border-b-2 border-gray-100 outline-none focus:border-blue-600 mb-10 pb-2 transition-colors" autoFocus />
-                                <div className="grid grid-cols-2 gap-6 mb-10">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Дата</label>
-                                        <input name="d" type="date" required className="w-full bg-gray-50 p-4 rounded-2xl text-sm font-bold border-none outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
+                        <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                            <div className="modal-glass p-12 w-full max-w-lg">
+                                <h2 className="text-4xl font-black mb-12 text-gray-900 tracking-tight">Нова подія</h2>
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const fd = new FormData(e.target);
+                                    setEvents([...events, {id: Date.now(), title: fd.get('t'), date: fd.get('d'), time: fd.get('tm'), color: fd.get('c')}]);
+                                    setIsModalOpen(false);
+                                }}>
+                                    <input name="t" required placeholder="Назва" className="w-full text-3xl font-light border-b-2 border-gray-100 outline-none focus:border-blue-600 mb-12 pb-2 transition-all" autoFocus />
+                                    <div className="grid grid-cols-2 gap-6 mb-12">
+                                        <div className="space-y-3">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Дата</span>
+                                            <input name="d" type="date" required className="w-full outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Час</span>
+                                            <input name="tm" type="time" required className="w-full outline-none" defaultValue="12:00" />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Час</label>
-                                        <input name="tm" type="time" required className="w-full bg-gray-50 p-4 rounded-2xl text-sm font-bold border-none outline-none" defaultValue="12:00" />
+                                    <div className="space-y-3 mb-12">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Колір категорії</span>
+                                        <select name="c" className="w-full bg-gray-50 p-4 rounded-2xl text-sm font-bold border-none outline-none appearance-none cursor-pointer">
+                                            <option value="#1a73e8">🔵 Google Blue</option>
+                                            <option value="#ea4335">🔴 Danger Red</option>
+                                            <option value="#fbbc05">🟡 Sunny Yellow</option>
+                                            <option value="#34a853">🟢 Success Green</option>
+                                        </select>
                                     </div>
-                                </div>
-                                <div className="space-y-2 mb-12">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Колір категорії</label>
-                                    <select name="c" className="w-full bg-gray-50 p-4 rounded-2xl text-sm font-bold border-none outline-none appearance-none">
-                                        <option value="#1a73e8">🔵 Google Blue</option>
-                                        <option value="#ea4335">🔴 Danger Red</option>
-                                        <option value="#fbbc05">🟡 Warning Yellow</option>
-                                        <option value="#34a853">🟢 Success Green</option>
-                                    </select>
-                                </div>
-                                <div className="flex gap-4">
-                                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-gray-400 font-bold hover:text-gray-600 transition-colors">Скасувати</button>
-                                    <button type="submit" className="flex-1 py-4 bg-blue-600 text-white rounded-[20px] font-black shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95">Зберегти</button>
-                                </div>
-                            </form>
+                                    <div className="flex gap-6 items-center">
+                                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 text-gray-400 font-extrabold hover:text-gray-600 transition-colors">Скасувати</button>
+                                        <button type="submit" className="flex-1 py-5 bg-blue-600 text-white rounded-[24px] font-black shadow-xl shadow-blue-200 hover:scale-105 active:scale-95 transition-all text-lg">Зберегти</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     )}
                 </div>
