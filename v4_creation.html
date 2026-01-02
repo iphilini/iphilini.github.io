@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; overflow: hidden; background: #05070a; font-family: 'Plus Jakarta Sans', sans-serif; }
-        .modal-glass { background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(25px); border-radius: 48px; }
+        .modal-glass { background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(25px); border-radius: 48px; pointer-events: auto; }
         canvas { cursor: crosshair; }
         input[type="color"] { -webkit-appearance: none; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; background: none; }
         input[type="color"]::-webkit-color-swatch { border: 2px solid #e2e8f0; border-radius: 50%; }
@@ -17,8 +17,8 @@
 </head>
 <body>
     <div class="absolute top-10 left-10 z-10 pointer-events-none text-white">
-        <h1 class="text-3xl font-black italic tracking-tighter uppercase">V4: Full Interaction</h1>
-        <p class="text-cyan-400 font-mono text-xs tracking-widest uppercase opacity-70">Клікніть на спіраль, щоб додати подію</p>
+        <h1 class="text-3xl font-black italic tracking-tighter uppercase leading-none">V4: Full Interaction</h1>
+        <p class="text-cyan-400 font-mono text-xs tracking-widest uppercase opacity-70 mt-2">Клікніть на спіраль, щоб додати подію</p>
     </div>
 
     <div id="event-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
@@ -27,7 +27,7 @@
             <div class="space-y-6">
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Назва</label>
-                    <input id="ev-title" type="text" placeholder="Назва..." class="w-full text-xl font-light border-b border-slate-200 outline-none focus:border-cyan-500 pb-2 transition-all" />
+                    <input id="ev-title" type="text" placeholder="Що плануємо?" class="w-full text-xl font-light border-b border-slate-200 outline-none focus:border-cyan-500 pb-2 transition-all" />
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -55,7 +55,7 @@
         let events = JSON.parse(localStorage.getItem('spiral_events_v4')) || [];
         let selectedStartTime = null;
 
-        // Scene Setup
+        // Сцена
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -66,12 +66,12 @@
         camera.position.set(22, 18, 22);
         controls.enableDamping = true;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
         const light = new THREE.PointLight(0xffffff, 1);
         light.position.set(10, 20, 10);
         scene.add(light);
 
-        // Math Helpers
+        // Математика
         function dateToPos(date) {
             const hrs = (date - CONFIG.baseDate) / 3600000;
             const angle = (hrs / 24) * Math.PI * 2;
@@ -86,7 +86,7 @@
             return new Date(CONFIG.baseDate + totalHrs * 3600000);
         }
 
-        // Spiral Geometry
+        // Спіраль
         const points = [];
         for (let h = 0; h < 24 * 7; h += 0.1) points.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
         const curve = new THREE.CatmullRomCurve3(points);
@@ -103,7 +103,7 @@
         );
         scene.add(hitZone);
 
-        // Events Group
+        // Рендеринг подій
         const eventGroup = new THREE.Group();
         scene.add(eventGroup);
 
@@ -125,14 +125,22 @@
         }
         renderEvents();
 
-        // Raycasting & Interaction
+        // Кільце "Зараз"
+        const nowRing = new THREE.Mesh(
+            new THREE.TorusGeometry(CONFIG.radius, 0.15, 12, 100),
+            new THREE.MeshBasicMaterial({ color: 0x00ffff })
+        );
+        nowRing.rotation.x = Math.PI/2;
+        scene.add(nowRing);
+
+        // Кліки
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let mouseDownTime = 0;
 
         window.addEventListener('mousedown', () => mouseDownTime = Date.now());
         window.addEventListener('mouseup', (e) => {
-            // Якщо ми перетягували камеру (більше 200мс), то це не клік по спіралі
+            // Якщо тримали довше 200мс - це поворот камери, а не клік
             if (Date.now() - mouseDownTime > 200) return;
 
             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -149,7 +157,6 @@
             }
         });
 
-        // Modal Logic
         function openModal() {
             document.getElementById('event-modal').style.display = 'flex';
             document.getElementById('ev-title').focus();
@@ -159,7 +166,7 @@
             document.getElementById('event-modal').style.display = 'none';
         }
 
-        function saveEvent() {
+        window.saveEvent = function() {
             const title = document.getElementById('ev-title').value;
             const duration = parseFloat(document.getElementById('ev-duration').value);
             const color = document.getElementById('ev-color').value;
@@ -170,10 +177,11 @@
             renderEvents();
             closeModal();
             document.getElementById('ev-title').value = "";
-        }
+        };
 
         function animate() {
             requestAnimationFrame(animate);
+            nowRing.position.y = dateToPos(new Date()).y;
             controls.update();
             renderer.render(scene, camera);
         }
