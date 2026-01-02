@@ -3,259 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spiral Calendar Pro - Color Master</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <title>Spiral Calendar - Version History</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #fff; margin: 0; overflow: hidden; }
-        .spatial-label {
-            position: absolute; pointer-events: none; transform: translate(-50%, -50%);
-            background: white; padding: 4px 12px; border-radius: 10px;
-            border: 1.5px solid #1a73e8; color: #1a73e8; font-size: 13px; font-weight: 800;
-            z-index: 10; box-shadow: 0 10px 20px rgba(26, 115, 232, 0.15);
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top left, #f8fafc, #e2e8f0);
+            min-height: 100vh;
         }
-        .modal-glass {
-            background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(25px);
-            border-radius: 48px; box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.2);
+        .version-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
         }
-        /* Стилізація вибору кольору */
-        input[type="color"] {
-            -webkit-appearance: none; border: none; width: 56px; height: 56px;
-            border-radius: 50%; cursor: pointer; background: none;
+        .version-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
         }
-        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { 
-            border: 4px solid white; border-radius: 50%; 
-            box-shadow: 0 0 0 2px #e2e8f0; 
-        }
-        .btn-save {
-            background: #3b66f1; box-shadow: 0 15px 30px rgba(59, 102, 241, 0.3);
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(59, 102, 241, 0.4); }
     </style>
 </head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
-
-        const App = () => {
-            const mountRef = useRef(null);
-            const controlsRef = useRef(null);
-            const [events, setEvents] = useState(() => JSON.parse(localStorage.getItem('spiral_v15')) || []);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [selectedEvent, setSelectedEvent] = useState(null);
-            const [tempColor, setTempColor] = useState("#3b66f1");
-            const [labels, setLabels] = useState([]);
-
-            const params = { h: 14, days: 6, r: 7 };
-
-            const getPos = useCallback((date) => {
-                const now = new Date();
-                const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const diff = (date - start) / 3600000;
-                const angle = (diff / 24) * 2 * Math.PI;
-                const y = (params.h * params.days / 2) - (diff / 24) * params.h;
-                return new THREE.Vector3(Math.cos(angle) * params.r, y, Math.sin(angle) * params.r);
-            }, []);
-
-            useEffect(() => {
-                const container = mountRef.current;
-                const scene = new THREE.Scene();
-                scene.background = new THREE.Color(0xffffff);
-                const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-                camera.position.set(22, 18, 22);
-
-                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                renderer.setSize(container.clientWidth, container.clientHeight);
-                renderer.setPixelRatio(window.devicePixelRatio);
-                container.appendChild(renderer.domElement);
-
-                const controls = new THREE.OrbitControls(camera, renderer.domElement);
-                controls.enableDamping = true;
-                controlsRef.current = controls;
-
-                // Покращене світло
-                scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-                const sun = new THREE.DirectionalLight(0xffffff, 0.6);
-                sun.position.set(10, 20, 10);
-                scene.add(sun);
-
-                // Вісь та Спіраль
-                const spiralPoints = [];
-                const tempLabels = [];
-                for(let h=0; h <= 24 * params.days; h+=0.1) {
-                    const d = new Date(); d.setHours(h, 0, 0, 0);
-                    const p = getPos(d);
-                    spiralPoints.push(p);
-                    if (h % 24 === 0) {
-                        tempLabels.push({ text: d.toLocaleDateString('uk-UA', {day:'numeric', month:'short'}), pos3d: p.clone() });
-                        const ring = new THREE.Mesh(new THREE.TorusGeometry(params.r, 0.005, 8, 100), new THREE.MeshBasicMaterial({color: '#cbd5e1'}));
-                        ring.position.y = p.y; ring.rotation.x = Math.PI/2;
-                        scene.add(ring);
-                    }
-                }
-                setLabels(tempLabels);
-
-                const tube = new THREE.Mesh(
-                    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(spiralPoints), 400, 0.1, 8, false),
-                    new THREE.MeshStandardMaterial({color: '#f1f5f9', metalness: 0.1, roughness: 0.8})
-                );
-                scene.add(tube);
-
-                // Події (Сфери з матеріалом високої якості)
-                const eventGroup = new THREE.Group();
-                events.forEach(ev => {
-                    const pos = getPos(new Date(`${ev.date}T${ev.time}`));
-                    const marker = new THREE.Mesh(
-                        new THREE.SphereGeometry(0.5, 32, 32),
-                        new THREE.MeshStandardMaterial({ color: ev.color, emissive: ev.color, emissiveIntensity: 0.2, roughness: 0.3 })
-                    );
-                    marker.position.copy(pos);
-                    marker.userData = ev;
-                    eventGroup.add(marker);
-                });
-                scene.add(eventGroup);
-
-                const onDown = (e) => {
-                    const rect = container.getBoundingClientRect();
-                    const m = new THREE.Vector2(((e.clientX - rect.left)/container.clientWidth)*2-1, -((e.clientY - rect.top)/container.clientHeight)*2+1);
-                    const rc = new THREE.Raycaster();
-                    rc.setFromCamera(m, camera);
-                    const hits = rc.intersectObjects(eventGroup.children);
-                    if(hits.length > 0) setSelectedEvent(hits[0].object.userData);
-                };
-                container.addEventListener('mousedown', onDown);
-
-                const animate = () => {
-                    requestAnimationFrame(animate);
-                    controls.update();
-                    const labelEls = document.querySelectorAll('.spatial-label');
-                    tempLabels.forEach((l, i) => {
-                        const p = l.pos3d.clone().project(camera);
-                        if(labelEls[i]) {
-                            labelEls[i].style.left = `${(p.x + 1) * container.clientWidth / 2}px`;
-                            labelEls[i].style.top = `${(-p.y + 1) * container.clientHeight / 2}px`;
-                            labelEls[i].style.opacity = p.z > 1 ? 0 : 1;
-                        }
-                    });
-                    renderer.render(scene, camera);
-                };
-                animate();
-
-                return () => { renderer.dispose(); if(container.contains(renderer.domElement)) container.removeChild(renderer.domElement); };
-            }, [events]);
-
-            useEffect(() => localStorage.setItem('spiral_v15', JSON.stringify(events)), [events]);
-
-            return (
-                <div className="flex h-screen w-full bg-white overflow-hidden">
-                    {/* SIDEBAR */}
-                    <aside className="w-80 border-r border-slate-100 p-8 flex flex-col z-20 bg-white shadow-xl shadow-slate-100">
-                        <div className="flex items-center gap-4 mb-14">
-                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-                                <span className="text-white font-black text-xl italic">S</span>
-                            </div>
-                            <span className="text-2xl font-extrabold tracking-tighter text-slate-900">Spiral Pro</span>
-                        </div>
-                        
-                        <button onClick={() => { setTempColor("#3b66f1"); setIsModalOpen(true); }} className="w-full py-4 bg-white border border-slate-200 rounded-full shadow-sm hover:shadow-md transition-all font-bold text-sm text-slate-700 mb-12">
-                           + Нова подія
-                        </button>
-
-                        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                            {events.sort((a,b) => new Date(a.date) - new Date(b.date)).map(ev => (
-                                <div key={ev.id} onClick={() => setSelectedEvent(ev)} className={`p-4 rounded-3xl cursor-pointer transition-all border ${selectedEvent?.id === ev.id ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-transparent hover:border-slate-200'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full" style={{background: ev.color}}></div>
-                                        <div className="font-extrabold text-slate-800 text-sm truncate">{ev.title}</div>
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 font-bold mt-1 ml-6 uppercase">{ev.date}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </aside>
-
-                    {/* SCENE */}
-                    <main className="flex-1 relative bg-slate-50">
-                        <div ref={mountRef} className="w-full h-full relative">
-                            {labels.map((l, i) => <div key={i} className="spatial-label">{l.text}</div>)}
-                        </div>
-
-                        {selectedEvent && (
-                            <div className="absolute top-10 right-10 bg-white/95 backdrop-blur-xl p-8 rounded-[40px] shadow-2xl border border-white w-80 animate-in slide-in-from-right-4 z-30">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-4 h-4 rounded-full" style={{background: selectedEvent.color}}></div>
-                                    <h3 className="text-2xl font-black text-slate-900 leading-tight">{selectedEvent.title}</h3>
-                                </div>
-                                <p className="text-sm text-slate-400 mb-8 font-bold ml-7">{selectedEvent.date} о {selectedEvent.time}</p>
-                                <div className="flex gap-3">
-                                    <button onClick={() => {setEvents(events.filter(e => e.id !== selectedEvent.id)); setSelectedEvent(null);}} className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase hover:bg-red-100 transition-colors">Видалити</button>
-                                    <button onClick={() => setSelectedEvent(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase">Закрити</button>
-                                </div>
-                            </div>
-                        )}
-                    </main>
-
-                    {/* MODAL WITH COLOR WHEEL */}
-                    {isModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/10 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                            <div className="modal-glass p-12 w-full max-w-[540px] animate-in zoom-in-95 duration-300">
-                                <h2 className="text-[40px] font-extrabold mb-10 text-slate-900 tracking-tight">Нова подія</h2>
-                                <form onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const fd = new FormData(e.target);
-                                    setEvents([...events, {id: Date.now(), title: fd.get('t'), date: fd.get('d'), time: fd.get('tm'), color: tempColor}]);
-                                    setIsModalOpen(false);
-                                }}>
-                                    <input name="t" required placeholder="Назва події" className="w-full text-4xl font-light border-b-2 border-slate-100 outline-none focus:border-blue-600 mb-12 pb-4 transition-all" autoFocus />
-                                    
-                                    <div className="grid grid-cols-2 gap-8 mb-12">
-                                        <div className="space-y-4">
-                                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Дата</span>
-                                            <input name="d" type="date" required className="w-full bg-slate-50 p-5 rounded-3xl font-extrabold text-slate-700 outline-none shadow-inner border-none" defaultValue={new Date().toISOString().split('T')[0]} />
-                                        </div>
-                                        <div className="space-y-4">
-                                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Час</span>
-                                            <input name="tm" type="time" required className="w-full bg-slate-50 p-5 rounded-3xl font-extrabold text-slate-700 outline-none shadow-inner border-none" defaultValue="12:00" />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between bg-slate-50 p-6 rounded-[32px] mb-16 shadow-inner">
-                                        <div className="space-y-1">
-                                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Колір події</span>
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase">{tempColor}</p>
-                                        </div>
-                                        {/* КОЛЬОРОВЕ КОЛО / PICKER */}
-                                        <input 
-                                            type="color" 
-                                            value={tempColor} 
-                                            onChange={(e) => setTempColor(e.target.value)}
-                                            className="cursor-pointer"
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-8 items-center">
-                                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 text-slate-400 font-extrabold text-lg">Скасувати</button>
-                                        <button type="submit" className="btn-save flex-[1.5] py-5 text-white rounded-[28px] font-black text-xl">Зберегти</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
+<body class="p-8 md:p-20">
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-16">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+                    <span class="text-white font-black text-2xl italic">S</span>
                 </div>
-            );
-        };
+                <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight">Spiral Calendar</h1>
+            </div>
+            <p class="text-slate-500 font-medium text-lg">Архів розробки: від концепту до робочої логіки інтерфейсу.</p>
+        </header>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <a href="v1_concept.html" class="version-card p-8 rounded-[32px] block">
+                <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 text-blue-500">v1.0</div>
+                <h3 class="text-xl font-bold text-slate-900 mb-3">Базовий Концепт</h3>
+                <p class="text-sm text-slate-500 leading-relaxed mb-6">Перша візуалізація 3D-спіралі та базова навігація камерою.</p>
+                <span class="text-xs font-bold text-slate-400">Січень 2, 2026</span>
+            </a>
+
+            <a href="v2_ui_ux.html" class="version-card p-8 rounded-[32px] block">
+                <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 text-indigo-500">v2.0</div>
+                <h3 class="text-xl font-bold text-slate-900 mb-3">UI/UX Реліз</h3>
+                <p class="text-sm text-slate-500 leading-relaxed mb-6">Впровадження Glassmorphism, Jakarta Sans та бічної панелі подій.</p>
+                <span class="text-xs font-bold text-slate-400">Січень 2, 2026</span>
+            </a>
+
+            <a href="v3_stable.html" class="version-card p-8 rounded-[32px] block">
+                <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 text-emerald-500">v3.0</div>
+                <h3 class="text-xl font-bold text-slate-900 mb-3">Стабільна Збірка</h3>
+                <p class="text-sm text-slate-500 leading-relaxed mb-6">Оптимізація рендерингу та виправлення помилок Raycasting.</p>
+                <span class="text-xs font-bold text-slate-400">Січень 2, 2026</span>
+            </a>
+
+            <a href="v4_color.html" class="version-card p-8 rounded-[32px] block">
+                <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 text-pink-500">v4.0</div>
+                <h3 class="text-xl font-bold text-slate-900 mb-3">Колірне Коло</h3>
+                <p class="text-sm text-slate-500 leading-relaxed mb-6">Додано інструмент вибору кольору та покращені 3D-матеріали.</p>
+                <span class="text-xs font-bold text-slate-400">Січень 3, 2026</span>
+            </a>
+
+            <a href="v5_core_logic.html" class="version-card p-8 rounded-[32px] block border-2 border-blue-100 ring-4 ring-blue-50">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest">v5.0</div>
+                    <span class="bg-blue-100 text-blue-600
