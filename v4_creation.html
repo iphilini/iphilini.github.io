@@ -2,13 +2,19 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Spiral v4.2 - Edit & Delete</title>
+    <title>Spiral v4.3 - Light Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #05070a; font-family: sans-serif; }
-        #tooltip { position: absolute; pointer-events: none; display: none; background: #fff; color: #000; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.5); text-transform: uppercase; }
+        body { margin: 0; overflow: hidden; background: radial-gradient(circle at center, #ffffff, #f1f5f9); font-family: sans-serif; }
+        #tooltip { 
+            position: absolute; pointer-events: none; display: none; 
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            color: #0f172a; padding: 12px 16px; border-radius: 20px; 
+            font-size: 13px; font-weight: 800; z-index: 100; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.05);
+        }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
@@ -16,40 +22,27 @@
 
     <div id="tooltip"></div>
 
-    <div class="absolute top-10 left-10 z-10 pointer-events-none text-white">
-        <h1 class="text-3xl font-black italic uppercase tracking-tighter text-cyan-400 leading-none">V4.2: Edit Mode</h1>
-        <p class="text-white/50 font-mono text-[10px] tracking-widest uppercase mt-2 italic">Клік на порожню спіраль — створити | Клік на подію — редагувати</p>
+    <div class="absolute top-10 left-10 z-10 pointer-events-none">
+        <h1 class="text-3xl font-black italic uppercase tracking-tighter text-slate-900 leading-none">Spiral <span class="text-blue-600">v4.3</span></h1>
+        <p id="clock-display" class="text-slate-400 font-mono text-[10px] tracking-widest uppercase mt-2 font-bold"></p>
     </div>
 
-    <div id="event-modal" class="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-[40px] w-full max-w-[420px] shadow-2xl pointer-events-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 id="modal-title" class="text-2xl font-black text-slate-900 uppercase">Подія</h2>
-                <button id="delete-btn" onclick="window.deleteEvent()" class="hidden text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor font-bold">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
-            </div>
-            
+    <div id="event-modal" class="fixed inset-0 z-[9999] bg-slate-900/20 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-[48px] w-full max-w-[420px] shadow-2xl pointer-events-auto">
+            <h2 id="modal-title" class="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight">Подія</h2>
             <div class="space-y-4">
-                <input id="ev-title" type="text" placeholder="Назва..." class="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 ring-cyan-500 font-bold" />
-                <input id="ev-start" type="datetime-local" class="w-full p-4 bg-slate-100 rounded-2xl font-bold text-sm" />
-                
+                <input id="ev-title" type="text" placeholder="Назва події" class="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 ring-blue-500 font-bold" />
+                <input id="ev-start" type="datetime-local" class="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm" />
                 <div class="flex gap-4">
-                    <div class="w-1/2">
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Тривалість</label>
-                        <input id="ev-duration" type="number" step="0.5" class="w-full p-4 bg-slate-100 rounded-2xl font-bold" />
-                    </div>
-                    <div class="w-1/2">
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Колір</label>
-                        <input id="ev-color" type="color" class="w-full h-14 rounded-2xl cursor-pointer bg-slate-100 p-1" />
-                    </div>
+                    <input id="ev-duration" type="number" step="0.5" class="w-1/2 p-4 bg-slate-50 rounded-2xl font-bold" />
+                    <input id="ev-color" type="color" class="w-1/2 h-14 rounded-2xl cursor-pointer bg-slate-50 p-1" />
                 </div>
-
                 <div class="flex gap-3 pt-6">
-                    <button onclick="window.closeModal()" class="flex-1 py-4 font-bold text-slate-400 uppercase text-xs">Закрити</button>
-                    <button onclick="window.saveEvent()" class="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs shadow-xl">Зберегти</button>
+                    <button onclick="window.closeModal()" class="flex-1 py-4 font-bold text-slate-400 uppercase text-[10px]">Скасувати</button>
+                    <button onclick="window.saveEvent()" class="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-blue-200">Зберегти</button>
+                    <button id="delete-btn" onclick="window.deleteEvent()" class="hidden bg-red-50 text-red-500 p-4 rounded-2xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
                 </div>
             </div>
         </div>
@@ -57,9 +50,8 @@
 
     <script>
         const CONFIG = { radius: 8, dayHeight: 12, baseDate: new Date().setHours(0,0,0,0) };
-        let events = JSON.parse(localStorage.getItem('spiral_events_v4.2')) || [];
-        let editingId = null; 
-        let currentClickedDate = null;
+        let events = JSON.parse(localStorage.getItem('spiral_events_v4.3')) || [];
+        let editingId = null;
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -71,10 +63,11 @@
         camera.position.set(22, 18, 22);
         controls.enableDamping = true;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-        const light = new THREE.PointLight(0xffffff, 1);
-        light.position.set(10, 20, 10);
-        scene.add(light);
+        // Освітлення для світлої теми
+        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
 
         // --- MATH ---
         function dateToPos(date) {
@@ -85,13 +78,32 @@
         function posToDate(y) { return new Date(CONFIG.baseDate + (y / CONFIG.dayHeight * 24) * 3600000); }
 
         // --- OBJECTS ---
+        // 1. Межі діб (Кільця-роздільники)
+        for(let d=0; d<=7; d++) {
+            const y = d * CONFIG.dayHeight;
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(CONFIG.radius, 0.02, 16, 100),
+                new THREE.MeshBasicMaterial({ color: 0xcbd5e1, transparent: true, opacity: 0.5 })
+            );
+            ring.position.y = y;
+            ring.rotation.x = Math.PI/2;
+            scene.add(ring);
+        }
+
+        // 2. Індикатор "ЗАРАЗ"
+        const nowPoint = new THREE.Mesh(
+            new THREE.SphereGeometry(0.3, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0x3b82f6 }) // Синій фокус
+        );
+        scene.add(nowPoint);
+
+        // 3. Спіраль
         const points = [];
         for (let h = 0; h < 24 * 7; h += 0.1) points.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
         const curve = new THREE.CatmullRomCurve3(points);
-        
         const visualSpiral = new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 600, 0.08, 8, false),
-            new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x0ea5e9, emissiveIntensity: 0.1, transparent: true, opacity: 0.4 })
+            new THREE.TubeGeometry(curve, 600, 0.05, 8, false),
+            new THREE.MeshStandardMaterial({ color: 0xe2e8f0 })
         );
         scene.add(visualSpiral);
 
@@ -111,13 +123,13 @@
                 const evPoints = [];
                 for (let i = 0; i <= ev.duration; i += 0.1) evPoints.push(dateToPos(new Date(start.getTime() + i * 3600000)));
                 const mesh = new THREE.Mesh(
-                    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(evPoints), 64, 0.4, 12, false),
-                    new THREE.MeshStandardMaterial({ color: ev.color, emissive: ev.color, emissiveIntensity: 0.4 })
+                    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(evPoints), 64, 0.35, 12, false),
+                    new THREE.MeshStandardMaterial({ color: ev.color, roughness: 0.3, metalness: 0.2 })
                 );
-                mesh.userData = { eventId: ev.id }; // Прив'язка ID до 3D об'єкта
+                mesh.userData = { eventId: ev.id, isEvent: true, title: ev.title, dur: ev.duration };
                 eventGroup.add(mesh);
             });
-            localStorage.setItem('spiral_events_v4.2', JSON.stringify(events));
+            localStorage.setItem('spiral_events_v4.3', JSON.stringify(events));
         }
 
         // --- INTERACTION ---
@@ -126,50 +138,56 @@
         let isDragging = false;
 
         controls.addEventListener('change', () => isDragging = true);
+
         window.addEventListener('pointermove', (e) => {
             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
             
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(hitZone);
             const tooltip = document.getElementById('tooltip');
             
-            if (intersects.length > 0) {
-                const d = posToDate(intersects[0].point.y);
-                tooltip.style.display = 'block';
-                tooltip.style.left = e.clientX + 20 + 'px';
-                tooltip.style.top = e.clientY + 'px';
-                tooltip.innerText = d.toLocaleString('uk-UA', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-            } else { tooltip.style.display = 'none'; }
+            // Пріоритет наведення: подія > порожня спіраль
+            const eventHits = raycaster.intersectObjects(eventGroup.children);
+            const spiralHits = raycaster.intersectObject(hitZone);
+
+            if (eventHits.length > 0) {
+                const data = eventHits[0].object.userData;
+                tooltip.innerHTML = `<div class="text-[10px] text-blue-500 uppercase mb-1">Подія</div><div>${data.title}</div><div class="text-[10px] opacity-50 mt-1">${data.dur} год</div>`;
+                showTooltip(e);
+            } else if (spiralHits.length > 0) {
+                const d = posToDate(spiralHits[0].point.y);
+                tooltip.innerHTML = `<div class="text-[10px] text-slate-400 uppercase mb-1">Вільний час</div>${d.toLocaleString('uk-UA', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`;
+                showTooltip(e);
+            } else {
+                tooltip.style.display = 'none';
+            }
         });
+
+        function showTooltip(e) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.display = 'block';
+            tooltip.style.left = e.clientX + 25 + 'px';
+            tooltip.style.top = e.clientY - 20 + 'px';
+        }
 
         window.addEventListener('pointerup', (e) => {
             if (isDragging) { isDragging = false; return; }
-            
             raycaster.setFromCamera(mouse, camera);
-            
-            // 1. Спочатку шукаємо клік по існуючим подіям
-            const eventIntersects = raycaster.intersectObjects(eventGroup.children);
-            if (eventIntersects.length > 0) {
-                const id = eventIntersects[0].object.userData.eventId;
-                openEditModal(id);
-                return;
-            }
-
-            // 2. Якщо не влучили в подію, перевіряємо спіраль (створення)
-            const spiralIntersects = raycaster.intersectObject(hitZone);
-            if (spiralIntersects.length > 0) {
-                currentClickedDate = posToDate(spiralIntersects[0].point.y);
-                openCreateModal(currentClickedDate);
+            const eventHits = raycaster.intersectObjects(eventGroup.children);
+            if (eventHits.length > 0) {
+                openEditModal(eventHits[0].object.userData.eventId);
+            } else {
+                const spiralHits = raycaster.intersectObject(hitZone);
+                if (spiralHits.length > 0) openCreateModal(posToDate(spiralHits[0].point.y));
             }
         });
 
-        // --- UI LOGIC ---
+        // --- UI FUNCTIONS ---
         window.openCreateModal = (date) => {
             editingId = null;
             document.getElementById('modal-title').innerText = "Нова подія";
             document.getElementById('delete-btn').classList.add('hidden');
-            fillModalFields("", date, 1, "#0ea5e9");
+            fillFields("", date, 1, "#3b82f6");
             document.getElementById('event-modal').style.display = 'flex';
         };
 
@@ -178,50 +196,45 @@
             const ev = events.find(e => e.id === id);
             document.getElementById('modal-title').innerText = "Редагувати";
             document.getElementById('delete-btn').classList.remove('hidden');
-            fillModalFields(ev.title, new Date(ev.start), ev.duration, ev.color);
+            fillFields(ev.title, new Date(ev.start), ev.duration, ev.color);
             document.getElementById('event-modal').style.display = 'flex';
         };
 
-        function fillModalFields(title, date, duration, color) {
-            document.getElementById('ev-title').value = title;
-            document.getElementById('ev-duration').value = duration;
-            document.getElementById('ev-color').value = color;
-            const tzOffset = date.getTimezoneOffset() * 60000;
-            document.getElementById('ev-start').value = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+        function fillFields(t, d, dur, c) {
+            document.getElementById('ev-title').value = t;
+            document.getElementById('ev-duration').value = dur;
+            document.getElementById('ev-color').value = c;
+            const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('ev-start').value = local;
         }
 
         window.closeModal = () => document.getElementById('event-modal').style.display = 'none';
 
         window.saveEvent = () => {
-            const newEv = {
+            const data = {
                 id: editingId || Date.now(),
                 title: document.getElementById('ev-title').value || "Без назви",
                 start: new Date(document.getElementById('ev-start').value).getTime(),
                 duration: parseFloat(document.getElementById('ev-duration').value),
                 color: document.getElementById('ev-color').value
             };
-
-            if (editingId) {
-                const index = events.findIndex(e => e.id === editingId);
-                events[index] = newEv;
-            } else {
-                events.push(newEv);
-            }
-            
+            if(editingId) events = events.map(e => e.id === editingId ? data : e);
+            else events.push(data);
             renderEvents();
             window.closeModal();
         };
 
         window.deleteEvent = () => {
-            if (editingId && confirm("Видалити цю подію?")) {
-                events = events.filter(e => e.id !== editingId);
-                renderEvents();
-                window.closeModal();
-            }
+            events = events.filter(e => e.id !== editingId);
+            renderEvents();
+            window.closeModal();
         };
 
         function animate() {
             requestAnimationFrame(animate);
+            const now = new Date();
+            nowPoint.position.copy(dateToPos(now));
+            document.getElementById('clock-display').innerText = now.toLocaleString('uk-UA', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit' });
             controls.update();
             renderer.render(scene, camera);
         }
