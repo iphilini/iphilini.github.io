@@ -3,127 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spiral Calendar 3D</title>
-    
+    <title>Спіральний Календар 3D</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
     <script src="https://unpkg.com/lucide@latest"></script>
-
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; }
-        #root { height: 100vh; width: 100vw; }
-        canvas { touch-action: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        #root { width: 100vw; height: 100vh; }
+        /* Стилізація шрифтів під Google Sans */
+        * { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useMemo, useEffect } = React;
+        const { useState, useRef, useEffect, useMemo } = React;
 
-        // Імітація компонентів react-three-fiber для роботи через CDN (спрощений підхід)
-        // Для повноцінного 3D в одному файлі ми використаємо чистий Three.js всередині React
-        
         const SpiralCalendar = () => {
+            const mountRef = useRef(null);
+            const [selectedDate, setSelectedDate] = useState(new Date());
+            const [selectedHour, setSelectedHour] = useState(null);
             const [events, setEvents] = useState([]);
-            const [view, setView] = useState('3d');
-            const canvasRef = useRef();
+            const [showAddEvent, setShowAddEvent] = useState(false);
+            const [view3D, setView3D] = useState(true);
+            const [newEvent, setNewEvent] = useState({ title: '', hour: 9, duration: 1, color: '#4285f4' });
 
-            // Логіка 3D сцени
+            // --- 3D Логіка ---
             useEffect(() => {
-                if (view !== '3d') return;
+                if (!view3D || !mountRef.current) return;
 
+                const container = mountRef.current;
                 const scene = new THREE.Scene();
-                scene.background = new THREE.Color('#f8fafc');
-                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ antialias: true });
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                canvasRef.current.appendChild(renderer.domElement);
+                scene.background = new THREE.Color(0xf8f9fa);
 
-                // Створення спіралі
+                const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+                camera.position.set(0, 12, 28);
+                camera.lookAt(0, 0, 0);
+
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                container.appendChild(renderer.domElement);
+
+                // Освітлення
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+                scene.add(ambientLight);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+                dirLight.position.set(10, 20, 10);
+                scene.add(dirLight);
+
+                const radius = 8;
+                const heightPerTurn = 12;
+                const hours = 24;
+
+                const getSpiralPos = (h) => {
+                    const t = h / hours;
+                    const angle = t * 2 * Math.PI;
+                    return new THREE.Vector3(Math.cos(angle) * radius, (t - 0.5) * heightPerTurn, Math.sin(angle) * radius);
+                };
+
+                // Малювання основної спіралі
                 const points = [];
-                for (let t = 0; t < Math.PI * 4; t += 0.1) {
-                    const x = Math.cos(t) * (t * 0.5);
-                    const y = t * 0.5;
-                    const z = Math.sin(t) * (t * 0.5);
-                    points.push(new THREE.Vector3(x, y, z));
+                for(let i=0; i<=240; i++) points.push(getSpiralPos(i/10));
+                const spiralGeom = new THREE.BufferGeometry().setFromPoints(points);
+                const spiralMat = new THREE.LineBasicMaterial({ color: 0xe8eaed });
+                scene.add(new THREE.Line(spiralGeom, spiralMat));
+
+                // Маркери годин
+                const hourSpheres = [];
+                for(let h=0; h<24; h++) {
+                    const pos = getSpiralPos(h);
+                    let color = 0x5f6368; // ніч
+                    if (h >= 6 && h < 9) color = 0xfbbc04; // ранок
+                    else if (h >= 9 && h < 17) color = 0x4285f4; // день
+                    else if (h >= 17 && h < 21) color = 0xf4b400; // вечір
+
+                    const geom = new THREE.SphereGeometry(0.4, 16, 16);
+                    const mat = new THREE.MeshStandardMaterial({ color });
+                    const sphere = new THREE.Mesh(geom, mat);
+                    sphere.position.copy(pos);
+                    sphere.userData = { hour: h };
+                    scene.add(sphere);
+                    hourSpheres.push(sphere);
                 }
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({ color: 0x3b82f6, linewidth: 2 });
-                const spiral = new THREE.Line(geometry, material);
-                scene.add(spiral);
 
-                camera.position.z = 10;
-                camera.position.y = 5;
+                // Поточний час (червона сфера)
+                const now = new Date();
+                const curH = now.getHours() + now.getMinutes()/60;
+                const curPos = getSpiralPos(curH);
+                const curGeom = new THREE.SphereGeometry(0.6, 32, 32);
+                const curMat = new THREE.MeshStandardMaterial({ color: 0xea4335, emissive: 0xea4335, emissiveIntensity: 0.5 });
+                const curMarker = new THREE.Mesh(curGeom, curMat);
+                curMarker.position.copy(curPos);
+                scene.add(curMarker);
 
+                // Рендеринг та анімація
+                let animationId;
                 const animate = () => {
-                    requestAnimationFrame(animate);
-                    spiral.rotation.y += 0.005;
+                    animationId = requestAnimationFrame(animate);
+                    const pulse = Math.sin(Date.now() * 0.002) * 0.1 + 1;
+                    curMarker.scale.set(pulse, pulse, pulse);
                     renderer.render(scene, camera);
                 };
                 animate();
 
-                return () => {
-                    canvasRef.current && canvasRef.current.removeChild(renderer.domElement);
+                // Обробка кліку
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+                const onClick = (e) => {
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(hourSpheres);
+                    if (intersects.length > 0) setSelectedHour(intersects[0].object.userData.hour);
                 };
-            }, [view]);
+                renderer.domElement.addEventListener('click', onClick);
 
+                return () => {
+                    cancelAnimationFrame(animationId);
+                    renderer.dispose();
+                    if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+                };
+            }, [view3D]);
+
+            // --- UI Компоненти ---
             return (
-                <div className="relative h-screen w-screen bg-slate-50 overflow-hidden flex flex-col">
-                    {/* Header */}
-                    <header className="bg-white border-b px-6 py-3 flex items-center justify-between z-10">
-                        <div className="flex items-center gap-4">
-                            <h1 className="text-xl font-semibold text-slate-800">Спіральний Календар</h1>
-                            <button 
-                                onClick={() => setView(view === '3d' ? 'list' : '3d')}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
-                            >
-                                {view === '3d' ? 'Список' : '3D Вигляд'}
-                            </button>
+                <div style={{ display: 'flex', height: '100vh', background: '#fff' }}>
+                    {/* Бічна панель */}
+                    <div style={{ width: '320px', borderRight: '1px solid #e8eaed', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+                        <h2 style={{ fontSize: '20px', color: '#1967d2', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                             Спіральний Календар
+                        </h2>
+                        
+                        <div style={{ margin: '20px 0', textAlign: 'center', fontWeight: 'bold' }}>
+                            {selectedDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}
                         </div>
-                    </header>
 
-                    <main className="flex-1 relative flex">
-                        {/* 3D Canvas Area */}
-                        <div className={`flex-1 ${view === '3d' ? 'block' : 'hidden'}`} ref={canvasRef}></div>
+                        <div style={{ display: 'flex', gap: '5px', background: '#f1f3f4', padding: '4px', borderRadius: '8px', marginBottom: '20px' }}>
+                            <button onClick={() => setView3D(true)} style={{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', background: view3D ? '#fff' : 'transparent', cursor: 'pointer' }}>3D</button>
+                            <button onClick={() => setView3D(false)} style={{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', background: !view3D ? '#fff' : 'transparent', cursor: 'pointer' }}>Список</button>
+                        </div>
 
-                        {/* List View Area */}
-                        {view === 'list' && (
-                            <div className="flex-1 p-8 overflow-y-auto">
-                                <h2 className="text-2xl font-bold mb-4">Розклад на сьогодні</h2>
-                                {events.length === 0 ? (
-                                    <p className="text-slate-500">Подій поки немає</p>
-                                ) : (
-                                    events.map((ev, i) => (
-                                        <div key={i} className="p-4 bg-white shadow rounded-lg mb-2 border-l-4 border-blue-500">
-                                            {ev.title} ({ev.time})
+                        <button onClick={() => setShowAddEvent(true)} style={{ width: '100%', padding: '12px', background: '#1967d2', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px' }}>
+                            + Додати подію
+                        </button>
+
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                            <h4 style={{ color: '#5f6368', fontSize: '12px', textTransform: 'uppercase' }}>Події дня</h4>
+                            {events.length === 0 && <p style={{ color: '#9aa0a6', fontSize: '14px' }}>Подій немає</p>}
+                            {events.map((ev, i) => (
+                                <div key={i} style={{ padding: '10px', borderLeft: `4px solid ${ev.color}`, background: '#f8f9fa', marginBottom: '8px', borderRadius: '4px', position: 'relative' }}>
+                                    <div style={{ fontWeight: '500' }}>{ev.title}</div>
+                                    <div style={{ fontSize: '12px', color: '#5f6368' }}>{ev.hour}:00 ({ev.duration} год.)</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Головна область */}
+                    <div style={{ flex: 1, position: 'relative' }}>
+                        {view3D ? (
+                            <div ref={mountRef} style={{ width: '100%', height: '100%' }}></div>
+                        ) : (
+                            <div style={{ padding: '40px', overflowY: 'auto', height: '100%' }}>
+                                {[...Array(24)].map((_, h) => (
+                                    <div key={h} style={{ display: 'flex', padding: '15px', borderBottom: '1px solid #eee' }}>
+                                        <div style={{ width: '50px', color: '#5f6368' }}>{h}:00</div>
+                                        <div style={{ flex: 1 }}>
+                                            {events.filter(e => e.hour === h).map((e, i) => (
+                                                <div key={i} style={{ background: e.color, color: '#fff', padding: '5px 10px', borderRadius: '4px' }}>{e.title}</div>
+                                            ))}
                                         </div>
-                                    ))
-                                )}
+                                    </div>
+                                ))}
                             </div>
                         )}
-
-                        {/* Sidebar */}
-                        <aside className="w-80 bg-white border-l p-6 shadow-xl z-10">
-                            <h3 className="text-lg font-bold mb-4">Додати подію</h3>
-                            <input type="text" placeholder="Назва події" className="w-full mb-3 p-2 border rounded" id="evTitle" />
-                            <input type="time" className="w-full mb-3 p-2 border rounded" id="evTime" />
-                            <button 
-                                onClick={() => {
-                                    const title = document.getElementById('evTitle').value;
-                                    const time = document.getElementById('evTime').value;
-                                    if(title) setEvents([...events, {title, time}]);
-                                }}
-                                className="w-full py-2 bg-green-600 text-white rounded-lg"
-                            >
-                                Додати
-                            </button>
-                        </aside>
-                    </main>
+                        
+                        {/* Модалка додавання */}
+                        {showAddEvent && (
+                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', zIndex: 100 }}>
+                                <h3>Нова подія</h3>
+                                <input type="text" placeholder="Назва" style={{ width: '100%', marginBottom: '10px', padding: '8px' }} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
+                                <input type="number" placeholder="Година" style={{ width: '100%', marginBottom: '10px', padding: '8px' }} onChange={e => setNewEvent({...newEvent, hour: parseInt(e.target.value)})} />
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button onClick={() => { setEvents([...events, newEvent]); setShowAddEvent(false); }} style={{ padding: '10px 20px', background: '#1967d2', color: '#fff', border: 'none', borderRadius: '4px' }}>Зберегти</button>
+                                    <button onClick={() => setShowAddEvent(false)} style={{ padding: '10px 20px', background: '#eee', border: 'none', borderRadius: '4px' }}>Скасувати</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         };
