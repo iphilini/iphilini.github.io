@@ -2,35 +2,54 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Spiral v4 - Final Fixed</title>
+    <title>Spiral v4.2 - Edit & Delete</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #05070a; font-family: sans-serif; }
-        #event-modal { display: none; }
+        #tooltip { position: absolute; pointer-events: none; display: none; background: #fff; color: #000; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.5); text-transform: uppercase; }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
+    <div id="tooltip"></div>
+
     <div class="absolute top-10 left-10 z-10 pointer-events-none text-white">
-        <h1 class="text-3xl font-black italic uppercase tracking-tighter text-cyan-400">V4: Stable Creation</h1>
-        <p class="text-white/50 font-mono text-xs tracking-widest uppercase mt-2">Наведіть на спіраль та клікніть</p>
+        <h1 class="text-3xl font-black italic uppercase tracking-tighter text-cyan-400 leading-none">V4.2: Edit Mode</h1>
+        <p class="text-white/50 font-mono text-[10px] tracking-widest uppercase mt-2 italic">Клік на порожню спіраль — створити | Клік на подію — редагувати</p>
     </div>
 
-    <div id="event-modal" class="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="bg-white p-10 rounded-[40px] w-full max-w-[400px] shadow-2xl pointer-events-auto">
-            <h2 class="text-3xl font-black mb-6 text-slate-900 leading-none">Створити подію</h2>
+    <div id="event-modal" class="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-[40px] w-full max-w-[420px] shadow-2xl pointer-events-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modal-title" class="text-2xl font-black text-slate-900 uppercase">Подія</h2>
+                <button id="delete-btn" onclick="window.deleteEvent()" class="hidden text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor font-bold">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            </div>
+            
             <div class="space-y-4">
                 <input id="ev-title" type="text" placeholder="Назва..." class="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 ring-cyan-500 font-bold" />
+                <input id="ev-start" type="datetime-local" class="w-full p-4 bg-slate-100 rounded-2xl font-bold text-sm" />
+                
                 <div class="flex gap-4">
-                    <input id="ev-duration" type="number" step="0.5" value="1" class="w-1/2 p-4 bg-slate-100 rounded-2xl font-bold" />
-                    <input id="ev-color" type="color" value="#0ea5e9" class="w-1/2 h-14 rounded-2xl cursor-pointer bg-slate-100 p-1" />
+                    <div class="w-1/2">
+                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Тривалість</label>
+                        <input id="ev-duration" type="number" step="0.5" class="w-full p-4 bg-slate-100 rounded-2xl font-bold" />
+                    </div>
+                    <div class="w-1/2">
+                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Колір</label>
+                        <input id="ev-color" type="color" class="w-full h-14 rounded-2xl cursor-pointer bg-slate-100 p-1" />
+                    </div>
                 </div>
-                <div class="flex gap-3 pt-4">
-                    <button onclick="window.closeModal()" class="flex-1 py-4 font-bold text-slate-400 uppercase text-xs">Скасувати</button>
-                    <button onclick="window.saveEvent()" class="flex-1 py-4 bg-cyan-500 text-white rounded-2xl font-black uppercase text-xs shadow-lg">Зберегти</button>
+
+                <div class="flex gap-3 pt-6">
+                    <button onclick="window.closeModal()" class="flex-1 py-4 font-bold text-slate-400 uppercase text-xs">Закрити</button>
+                    <button onclick="window.saveEvent()" class="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs shadow-xl">Зберегти</button>
                 </div>
             </div>
         </div>
@@ -38,46 +57,41 @@
 
     <script>
         const CONFIG = { radius: 8, dayHeight: 12, baseDate: new Date().setHours(0,0,0,0) };
-        let events = JSON.parse(localStorage.getItem('spiral_events_v4')) || [];
-        let selectedStartTime = null;
+        let events = JSON.parse(localStorage.getItem('spiral_events_v4.2')) || [];
+        let editingId = null; 
+        let currentClickedDate = null;
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        camera.position.set(20, 15, 20);
+        camera.position.set(22, 18, 22);
         controls.enableDamping = true;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
         const light = new THREE.PointLight(0xffffff, 1);
         light.position.set(10, 20, 10);
         scene.add(light);
 
-        // Математика
+        // --- MATH ---
         function dateToPos(date) {
             const hrs = (date - CONFIG.baseDate) / 3600000;
             const angle = (hrs / 24) * Math.PI * 2;
             return new THREE.Vector3(Math.cos(angle) * CONFIG.radius, (hrs / 24) * CONFIG.dayHeight, Math.sin(angle) * CONFIG.radius);
         }
+        function posToDate(y) { return new Date(CONFIG.baseDate + (y / CONFIG.dayHeight * 24) * 3600000); }
 
-        function posToDate(y, angle) {
-            let normAngle = angle % (Math.PI * 2);
-            if (normAngle < 0) normAngle += Math.PI * 2;
-            return new Date(CONFIG.baseDate + ((y / CONFIG.dayHeight) * 24) * 3600000);
-        }
-
-        // Об'єкти
+        // --- OBJECTS ---
         const points = [];
         for (let h = 0; h < 24 * 7; h += 0.1) points.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
         const curve = new THREE.CatmullRomCurve3(points);
         
         const visualSpiral = new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 600, 0.1, 8, false),
-            new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x0ea5e9, emissiveIntensity: 0.2 })
+            new THREE.TubeGeometry(curve, 600, 0.08, 8, false),
+            new THREE.MeshStandardMaterial({ color: 0x1e293b, emissive: 0x0ea5e9, emissiveIntensity: 0.1, transparent: true, opacity: 0.4 })
         );
         scene.add(visualSpiral);
 
@@ -96,55 +110,113 @@
                 const start = new Date(ev.start);
                 const evPoints = [];
                 for (let i = 0; i <= ev.duration; i += 0.1) evPoints.push(dateToPos(new Date(start.getTime() + i * 3600000)));
-                eventGroup.add(new THREE.Mesh(
+                const mesh = new THREE.Mesh(
                     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(evPoints), 64, 0.4, 12, false),
                     new THREE.MeshStandardMaterial({ color: ev.color, emissive: ev.color, emissiveIntensity: 0.4 })
-                ));
+                );
+                mesh.userData = { eventId: ev.id }; // Прив'язка ID до 3D об'єкта
+                eventGroup.add(mesh);
             });
-            localStorage.setItem('spiral_events_v4', JSON.stringify(events));
+            localStorage.setItem('spiral_events_v4.2', JSON.stringify(events));
         }
-        renderEvents();
 
-        // Interaction
+        // --- INTERACTION ---
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
-        let isMoving = false;
+        let isDragging = false;
 
-        // Визначаємо, чи користувач крутить камеру чи просто клікає
-        controls.addEventListener('change', () => isMoving = true);
-
-        renderer.domElement.addEventListener('pointerdown', () => isMoving = false);
-        renderer.domElement.addEventListener('pointerup', (e) => {
-            if (isMoving) return; // Якщо камера рухалась, ігноруємо клік
-
+        controls.addEventListener('change', () => isDragging = true);
+        window.addEventListener('pointermove', (e) => {
             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
+            
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObject(hitZone);
-
+            const tooltip = document.getElementById('tooltip');
+            
             if (intersects.length > 0) {
-                const p = intersects[0].point;
-                selectedStartTime = posToDate(p.y, Math.atan2(p.z, p.x));
-                window.openModal();
+                const d = posToDate(intersects[0].point.y);
+                tooltip.style.display = 'block';
+                tooltip.style.left = e.clientX + 20 + 'px';
+                tooltip.style.top = e.clientY + 'px';
+                tooltip.innerText = d.toLocaleString('uk-UA', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+            } else { tooltip.style.display = 'none'; }
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (isDragging) { isDragging = false; return; }
+            
+            raycaster.setFromCamera(mouse, camera);
+            
+            // 1. Спочатку шукаємо клік по існуючим подіям
+            const eventIntersects = raycaster.intersectObjects(eventGroup.children);
+            if (eventIntersects.length > 0) {
+                const id = eventIntersects[0].object.userData.eventId;
+                openEditModal(id);
+                return;
+            }
+
+            // 2. Якщо не влучили в подію, перевіряємо спіраль (створення)
+            const spiralIntersects = raycaster.intersectObject(hitZone);
+            if (spiralIntersects.length > 0) {
+                currentClickedDate = posToDate(spiralIntersects[0].point.y);
+                openCreateModal(currentClickedDate);
             }
         });
 
-        // Глобальні функції
-        window.openModal = () => document.getElementById('event-modal').style.display = 'flex';
+        // --- UI LOGIC ---
+        window.openCreateModal = (date) => {
+            editingId = null;
+            document.getElementById('modal-title').innerText = "Нова подія";
+            document.getElementById('delete-btn').classList.add('hidden');
+            fillModalFields("", date, 1, "#0ea5e9");
+            document.getElementById('event-modal').style.display = 'flex';
+        };
+
+        window.openEditModal = (id) => {
+            editingId = id;
+            const ev = events.find(e => e.id === id);
+            document.getElementById('modal-title').innerText = "Редагувати";
+            document.getElementById('delete-btn').classList.remove('hidden');
+            fillModalFields(ev.title, new Date(ev.start), ev.duration, ev.color);
+            document.getElementById('event-modal').style.display = 'flex';
+        };
+
+        function fillModalFields(title, date, duration, color) {
+            document.getElementById('ev-title').value = title;
+            document.getElementById('ev-duration').value = duration;
+            document.getElementById('ev-color').value = color;
+            const tzOffset = date.getTimezoneOffset() * 60000;
+            document.getElementById('ev-start').value = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+        }
+
         window.closeModal = () => document.getElementById('event-modal').style.display = 'none';
+
         window.saveEvent = () => {
-            const title = document.getElementById('ev-title').value;
-            if (title) {
-                events.push({ 
-                    title, 
-                    start: selectedStartTime.getTime(), 
-                    duration: parseFloat(document.getElementById('ev-duration').value), 
-                    color: document.getElementById('ev-color').value 
-                });
+            const newEv = {
+                id: editingId || Date.now(),
+                title: document.getElementById('ev-title').value || "Без назви",
+                start: new Date(document.getElementById('ev-start').value).getTime(),
+                duration: parseFloat(document.getElementById('ev-duration').value),
+                color: document.getElementById('ev-color').value
+            };
+
+            if (editingId) {
+                const index = events.findIndex(e => e.id === editingId);
+                events[index] = newEv;
+            } else {
+                events.push(newEv);
+            }
+            
+            renderEvents();
+            window.closeModal();
+        };
+
+        window.deleteEvent = () => {
+            if (editingId && confirm("Видалити цю подію?")) {
+                events = events.filter(e => e.id !== editingId);
                 renderEvents();
                 window.closeModal();
-                document.getElementById('ev-title').value = "";
             }
         };
 
@@ -153,13 +225,9 @@
             controls.update();
             renderer.render(scene, camera);
         }
-        animate();
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        renderEvents();
+        animate();
     </script>
 </body>
 </html>
