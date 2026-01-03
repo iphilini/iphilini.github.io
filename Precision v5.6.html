@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPHILINI | Precision v5.6</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020617; font-family: 'Inter', sans-serif; }
+        .side-panel { background: rgba(255, 255, 255, 1); border-right: 1px solid #e2e8f0; z-index: 50; }
+        #tooltip { position: absolute; pointer-events: none; display: none; background: #1e293b; color: white; padding: 12px; border-radius: 8px; font-size: 11px; z-index: 1000; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .num-input { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 6px; font-weight: 800; width: 60px; text-align: center; }
+        input[type="datetime-local"] { font-size: 13px; font-weight: 600; }
+    </style>
+</head>
+<body class="flex">
+
+    <div id="tooltip"></div>
+
+    <aside class="side-panel w-72 h-screen flex flex-col shadow-2xl">
+        <div class="p-6">
+            <h1 class="text-xl font-black text-slate-900 italic tracking-tighter uppercase leading-none">IPHILINI<br><span class="text-blue-600 text-[9px] not-italic tracking-[0.3em]">CALIBRATED 5.6</span></h1>
+            <p id="live-clock" class="text-[11px] font-mono text-slate-500 font-bold mt-4 p-2 bg-slate-100 rounded-lg text-center uppercase"></p>
+        </div>
+
+        <div class="px-6 space-y-3 mb-6">
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase">
+                <span>Масштаб витка %</span>
+                <input id="in-height-pct" type="number" value="180" class="num-input">
+            </div>
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase">
+                <span>Глибина (днів)</span>
+                <input id="in-days" type="number" value="30" class="num-input">
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-6 pb-10 border-t border-slate-50 pt-4">
+            <h3 class="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-4 italic text-center">— Список подій —</h3>
+            <div id="sidebar-event-list" class="space-y-2"></div>
+        </div>
+    </aside>
+
+    <div id="event-modal" class="fixed inset-y-0 left-72 w-80 bg-white z-[2000] shadow-2xl transform -translate-x-full transition-transform duration-300 hidden flex-col p-8 border-r">
+        <h2 class="text-lg font-black text-slate-900 uppercase italic mb-8">Параметри</h2>
+        <div class="space-y-5 flex-1">
+            <input id="ev-summary" type="text" placeholder="Назва події" class="w-full p-4 bg-slate-50 rounded-xl font-bold border-none outline-none focus:ring-2 ring-blue-500" />
+            <div class="space-y-1">
+                <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Початок</label>
+                <input id="ev-start" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold" />
+            </div>
+            <div class="space-y-1">
+                <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Кінець</label>
+                <input id="ev-end" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold" />
+            </div>
+            <select id="ev-repeat" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm">
+                <option value="none">Без повторів</option>
+                <option value="daily">Щодня</option>
+                <option value="weekly">Щотижня</option>
+            </select>
+            <input id="ev-color" type="color" value="#3b82f6" class="w-full h-12 rounded-xl cursor-pointer bg-transparent border-none" />
+        </div>
+        <div class="pt-8 space-y-2">
+            <button onclick="window.saveEvent()" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-700">Зберегти</button>
+            <button onclick="window.deleteEvent()" id="btn-delete" class="w-full py-2 text-red-500 font-bold uppercase text-[9px]">Видалити подію</button>
+            <button onclick="window.closeModal()" class="w-full py-2 text-slate-400 font-bold uppercase text-[9px]">Скасувати</button>
+        </div>
+    </div>
+
+    <main id="canvas-container" class="flex-1 relative"></main>
+
+    <script>
+        let CONFIG = { radius: 8, heightPct: 180, renderDays: 30, baseDate: new Date().setHours(0,0,0,0) };
+        let events = JSON.parse(localStorage.getItem('iphilini_v56_data')) || [];
+        let editingId = null;
+
+        const getDayHeight = () => (CONFIG.radius * (CONFIG.heightPct / 100));
+
+        const scene = new THREE.Scene();
+        const container = document.getElementById('canvas-container');
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(20, 25, 20);
+        controls.enableDamping = true;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const pLight = new THREE.PointLight(0xffffff, 1.2);
+        pLight.position.set(15, 40, 15);
+        scene.add(pLight);
+        
+        const spiralGroup = new THREE.Group();
+        const gridGroup = new THREE.Group();
+        const eventGroup = new THREE.Group();
+        scene.add(spiralGroup, gridGroup, eventGroup);
+
+        // Маркер ПОТОЧНОГО ЧАСУ
+        const nowMarker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.38, 32, 32),
+            new THREE.MeshStandardMaterial({ color: 0x60a5fa, emissive: 0x3b82f6, emissiveIntensity: 2 })
+        );
+        scene.add(nowMarker);
+
+        // КАЛІБРОВАНА МАТЕМАТИКА
+        function dateToPos(date) {
+            const hrsSinceBase = (date - CONFIG.baseDate) / 3600000;
+            // -Math.PI/2 зміщує 00:00 в точку 3 години дня (справа)
+            const angle = (hrsSinceBase / 24) * Math.PI * 2 - Math.PI / 2;
+            const y = (hrsSinceBase / 24) * getDayHeight();
+            return new THREE.Vector3(Math.cos(angle) * CONFIG.radius, y, Math.sin(angle) * CONFIG.radius);
+        }
+
+        function posToDate(y) {
+            const hrs = (y / getDayHeight()) * 24;
+            return new Date(CONFIG.baseDate + hrs * 3600000);
+        }
+
+        function buildSpiral() {
+            spiralGroup.clear(); gridGroup.clear();
+            const totalHrs = 24 * CONFIG.renderDays;
+            const pts = [];
+            for (let h = 0; h < totalHrs; h += 0.1) pts.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
+            
+            // Тіло спіралі
+            spiralGroup.add(new THREE.Mesh(
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 250 * CONFIG.renderDays, 0.04, 8, false),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b })
+            ));
+
+            // Невидима зона кліку
+            const sensor = new THREE.Mesh(
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 120 * CONFIG.renderDays, 0.5, 8, false),
+                new THREE.MeshBasicMaterial({ visible: false })
+            );
+            sensor.userData = { type: 'wire' };
+            spiralGroup.add(sensor);
+
+            // Поділки (Рівно 24 на виток)
+            for (let h = 0; h <= totalHrs; h++) {
+                const date = new Date(CONFIG.baseDate + h * 3600000);
+                const pos = dateToPos(date);
+                if (h % 24 === 0) {
+                    const isMon = date.getDay() === 1;
+                    const m = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.32, 16, 16), 
+                        new THREE.MeshStandardMaterial({ color: isMon ? 0xf59e0b : 0x3b82f6, emissive: isMon ? 0xf59e0b : 0x2563eb, emissiveIntensity: 0.5 })
+                    );
+                    m.position.copy(pos); 
+                    m.userData = { type: 'day', date: date, label: date.toLocaleDateString('uk', {weekday:'long', day:'numeric', month:'long'}) };
+                    gridGroup.add(m);
+                } else {
+                    const t = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+                    t.position.copy(pos); 
+                    t.userData = { type: 'hour', hour: date.getHours(), timeStr: date.toLocaleTimeString('uk', {hour:'2-digit', minute:'2-digit'}) };
+                    gridGroup.add(t);
+                }
+            }
+        }
+
+        function renderEvents() {
+            eventGroup.clear();
+            const listEl = document.getElementById('sidebar-event-list');
+            listEl.innerHTML = "";
+
+            events.forEach(ev => {
+                const start = new Date(ev.start);
+                const end = new Date(ev.end);
+                let instances = [{ s: start, e: end }];
+                
+                if (ev.repeat === 'daily') {
+                    for(let i=1; i<CONFIG.renderDays; i++) 
+                        instances.push({ s: new Date(start.getTime() + i*86400000), e: new Date(end.getTime() + i*86400000) });
+                } else if (ev.repeat === 'weekly') {
+                    for(let i=1; i<5; i++) 
+                        instances.push({ s: new Date(start.getTime() + i*7*86400000), e: new Date(end.getTime() + i*7*86400000) });
+                }
+
+                instances.forEach(inst => {
+                    const dur = (inst.e - inst.s) / 3600000;
+                    const pts = [];
+                    for (let i = 0; i <= dur; i += 0.2) pts.push(dateToPos(new Date(inst.s.getTime() + i * 3600000)));
+                    if(pts.length > 1) {
+                        const m = new THREE.Mesh(
+                            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.25, 12, false),
+                            new THREE.MeshStandardMaterial({ color: ev.color, transparent: true, opacity: 0.85 })
+                        );
+                        m.userData = { type: 'event', id: ev.id, summary: ev.summary, time: inst.s.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'}) };
+                        eventGroup.add(m);
+                    }
+                });
+
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-white rounded-xl border-l-4 cursor-pointer hover:shadow-md transition-all text-[11px] border border-slate-100 shadow-sm';
+                item.style.borderLeftColor = ev.color;
+                item.innerHTML = `<div class="font-black text-slate-800 uppercase">${ev.summary}</div><div class="text-slate-400 font-bold">${start.toLocaleDateString('uk')}</div>`;
+                item.onclick = () => window.openModal(ev);
+                listEl.appendChild(item);
+            });
+            localStorage.setItem('iphilini_v56_data', JSON.stringify(events));
+        }
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hoveredObj = null;
+
+        container.addEventListener('pointermove', (e) => {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            
+            const t = document.getElementById('tooltip');
+            const hitsEvents = raycaster.intersectObjects(eventGroup.children);
+            const hitsGrid = raycaster.intersectObjects(gridGroup.children);
+            const hitsSpiral = raycaster.intersectObjects(spiralGroup.children);
+
+            if (hoveredObj && hoveredObj.userData.type === 'hour') {
+                hoveredObj.material.color.set(0x334155);
+                hoveredObj.scale.set(1,1,1);
+            }
+
+            if (hitsEvents.length > 0) {
+                const d = hitsEvents[0].object.userData;
+                t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
+                t.innerHTML = `<div class="text-[9px] font-black text-blue-400 uppercase mb-1">Подія</div><div class="font-bold text-sm">${d.summary}</div><div>${d.time}</div>`;
+                document.body.style.cursor = 'pointer';
+            } else if (hitsGrid.length > 0) {
+                hoveredObj = hitsGrid[0].object;
+                const d = hoveredObj.userData;
+                t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
+                if (d.type === 'day') t.innerHTML = `<b class="text-amber-400 uppercase">Початок доби</b><br>${d.label}`;
+                else {
+                    t.innerHTML = `<span class="font-mono text-white font-bold">${d.timeStr}</span>`;
+                    hoveredObj.material.color.set(0xffffff);
+                    hoveredObj.scale.set(1.8, 1.8, 1.8);
+                }
+                document.body.style.cursor = 'pointer';
+            } else if (hitsSpiral.length > 0) {
+                const date = posToDate(hitsSpiral[0].point.y);
+                t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
+                t.innerHTML = `<span class="font-mono font-bold text-blue-300">${date.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</span>`;
+                document.body.style.cursor = 'crosshair';
+            } else {
+                t.style.display = 'none'; document.body.style.cursor = 'default';
+            }
+        });
+
+        container.addEventListener('pointerup', (e) => {
+            raycaster.setFromCamera(mouse, camera);
+            const hE = raycaster.intersectObjects(eventGroup.children);
+            const hS = raycaster.intersectObjects(spiralGroup.children);
+
+            if (hE.length > 0) {
+                const ev = events.find(i => i.id === hE[0].object.userData.id);
+                if (ev) window.openModal(ev);
+            } else if (hS.length > 0) {
+                const time = posToDate(hS[0].point.y);
+                window.openModal({ id: null, summary: "", start: time, end: new Date(time.getTime() + 3600000), color: "#3b82f6", repeat: 'none' });
+            }
+        });
+
+        window.openModal = (ev) => {
+            editingId = ev.id;
+            document.getElementById('ev-summary').value = ev.summary;
+            document.getElementById('ev-repeat').value = ev.repeat || 'none';
+            document.getElementById('ev-color').value = ev.color;
+            const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+            document.getElementById('ev-start').value = toISO(new Date(ev.start));
+            document.getElementById('ev-end').value = toISO(new Date(ev.end));
+            document.getElementById('btn-delete').style.display = editingId ? 'block' : 'none';
+            const modal = document.getElementById('event-modal');
+            modal.style.display = 'flex'; setTimeout(() => modal.style.transform = 'translateX(0)', 10);
+        };
+
+        window.saveEvent = () => {
+            const data = {
+                id: editingId || Date.now(),
+                summary: document.getElementById('ev-summary').value || "План",
+                start: new Date(document.getElementById('ev-start').value).getTime(),
+                end: new Date(document.getElementById('ev-end').value).getTime(),
+                repeat: document.getElementById('ev-repeat').value,
+                color: document.getElementById('ev-color').value
+            };
+            if(editingId) events = events.map(e => e.id === editingId ? data : e);
+            else events.push(data);
+            renderEvents(); window.closeModal();
+        };
+
+        window.closeModal = () => {
+            const modal = document.getElementById('event-modal');
+            modal.style.transform = 'translateX(-100%)'; setTimeout(() => modal.style.display = 'none', 300);
+        };
+
+        window.deleteEvent = () => { events = events.filter(e => e.id !== editingId); renderEvents(); window.closeModal(); };
+
+        document.getElementById('in-height-pct').onchange = (e) => { CONFIG.heightPct = parseInt(e.target.value); buildSpiral(); renderEvents(); };
+        document.getElementById('in-days').onchange = (e) => { CONFIG.renderDays = parseInt(e.target.value); buildSpiral(); renderEvents(); };
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update(time);
+            const now = new Date();
+            nowMarker.position.copy(dateToPos(now));
+            
+            // Ефект пульсації маркеру "Зараз"
+            const s = 1 + Math.sin(time * 0.005) * 0.1;
+            nowMarker.scale.set(s,s,s);
+            
+            document.getElementById('live-clock').innerText = now.toLocaleString('uk', { hour: '2-digit', minute: '2-digit', second: '2-digit', day:'numeric', month:'short' });
+            controls.update(); renderer.render(scene, camera);
+        }
+
+        buildSpiral(); renderEvents(); animate();
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+</body>
+</html>
