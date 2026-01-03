@@ -3,123 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLIP | Atomic v6.0</title>
+    <title>IPHILINI | Minute Structure v6.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #020617; font-family: 'Inter', sans-serif; color: #f8fafc; }
-        .side-panel { background: #ffffff; border-right: 1px solid #1e293b; z-index: 50; color: #0f172a; }
-        #tooltip { position: absolute; pointer-events: none; display: none; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(4px); color: white; padding: 12px; border-radius: 8px; font-size: 11px; z-index: 1000; border: 1px solid #334155; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        .num-input { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 4px; font-weight: 800; width: 60px; text-align: center; }
-        /* Анімація завантаження */
-        #loader { position: fixed; inset: 0; background: #020617; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; pointer-events: none; }
+        body { margin: 0; overflow: hidden; background: #0b1121; font-family: 'Inter', sans-serif; color: #e2e8f0; }
+        .side-panel { background: #0f172a; border-right: 1px solid #1e293b; z-index: 50; }
+        #tooltip { position: absolute; pointer-events: none; display: none; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); border: 1px solid #334155; color: white; padding: 8px 12px; border-radius: 6px; font-size: 11px; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .num-input { background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; padding: 2px 6px; font-weight: 600; width: 50px; text-align: center; }
+        input[type="datetime-local"], select, input[type="text"] { background: #1e293b; color: white; border: 1px solid #334155; }
+        ::-webkit-calendar-picker-indicator { filter: invert(1); }
     </style>
 </head>
 <body class="flex">
 
-    <div id="loader"><div class="text-blue-500 font-mono font-bold animate-pulse">GENERATING TIME PARTICLES...</div></div>
     <div id="tooltip"></div>
 
-    <aside class="side-panel w-72 h-screen flex flex-col shadow-2xl relative">
-        <div class="p-6 bg-slate-50 border-b border-slate-200">
-            <h1 class="text-xl font-black italic tracking-tighter uppercase">FLIP!<br><span class="text-blue-600 text-[9px] not-italic tracking-[0.3em]">ATOMIC v6.0</span></h1>
-            <p id="live-clock" class="text-[11px] font-mono text-slate-500 font-bold mt-4 p-2 bg-white border border-slate-200 rounded-lg text-center uppercase shadow-sm"></p>
+    <aside class="side-panel w-72 h-screen flex flex-col shadow-2xl">
+        <div class="p-5 border-b border-slate-800">
+            <h1 class="text-lg font-black italic tracking-tighter uppercase text-white">FLIP!<br><span class="text-blue-500 text-[9px] not-italic tracking-[0.3em]">MINUTE STRUCTURE</span></h1>
+            <div id="live-clock" class="text-[10px] font-mono text-blue-400 font-bold mt-3 text-center tracking-widest"></div>
         </div>
 
-        <div class="px-6 py-4 space-y-3 bg-white">
-            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <span>Масштаб %</span>
+        <div class="px-5 py-4 space-y-3 bg-slate-900">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase">
+                <span>Висота витка</span>
                 <input id="in-height-pct" type="number" value="180" class="num-input">
             </div>
-            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase">
                 <span>Днів</span>
                 <input id="in-days" type="number" value="30" class="num-input">
             </div>
-            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <span>Деталізація (сек)</span>
-                <input id="in-res" type="number" value="60" min="1" step="1" class="num-input text-blue-600">
-            </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-6 pb-10 border-t border-slate-100 bg-slate-50/50">
-             <h3 class="text-[9px] font-black text-slate-300 uppercase tracking-widest my-4 italic text-center">— Активні події —</h3>
+        <div class="flex-1 overflow-y-auto px-4 pb-4 border-t border-slate-800 bg-slate-900/50">
+             <h3 class="text-[9px] font-bold text-slate-600 uppercase tracking-widest my-4 text-center">Ваші події</h3>
             <div id="sidebar-event-list" class="space-y-2"></div>
         </div>
     </aside>
 
-    <div id="event-modal" class="fixed inset-y-0 left-72 w-80 bg-white z-[2000] shadow-2xl transform -translate-x-full transition-transform duration-300 hidden flex-col p-8 border-r text-slate-900">
-        <h2 class="text-lg font-black uppercase italic mb-8">Частка часу</h2>
-        <div class="space-y-5 flex-1">
-            <input id="ev-summary" type="text" placeholder="Назва події" class="w-full p-4 bg-slate-50 rounded-xl font-bold border-none outline-none focus:ring-2 ring-blue-500" />
+    <div id="event-modal" class="fixed inset-y-0 left-72 w-80 bg-slate-900 z-[2000] shadow-2xl transform -translate-x-full transition-transform duration-200 hidden flex-col p-6 border-r border-slate-800">
+        <h2 class="text-sm font-black uppercase text-blue-500 mb-6 tracking-widest">Редагування часу</h2>
+        <div class="space-y-4 flex-1">
+            <input id="ev-summary" type="text" placeholder="Назва події" class="w-full p-3 rounded-lg text-sm font-bold focus:outline-none focus:border-blue-500 transition-colors" />
             <div class="space-y-1">
-                <label class="text-[9px] font-black text-slate-400 uppercase">Початок</label>
-                <input id="ev-start" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm" />
+                <label class="text-[9px] font-bold text-slate-500 uppercase">Початок (хв)</label>
+                <input id="ev-start" type="datetime-local" class="w-full p-2 rounded-lg text-xs font-mono" />
             </div>
             <div class="space-y-1">
-                <label class="text-[9px] font-black text-slate-400 uppercase">Кінець</label>
-                <input id="ev-end" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm" />
+                <label class="text-[9px] font-bold text-slate-500 uppercase">Кінець (хв)</label>
+                <input id="ev-end" type="datetime-local" class="w-full p-2 rounded-lg text-xs font-mono" />
             </div>
-            <select id="ev-repeat" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm">
-                <option value="none">Без повторів</option>
+            <select id="ev-repeat" class="w-full p-2 rounded-lg text-xs font-bold">
+                <option value="none">Один раз</option>
                 <option value="daily">Щодня</option>
             </select>
-            <input id="ev-color" type="color" value="#3b82f6" class="w-full h-10 rounded-lg cursor-pointer bg-transparent border-none" />
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold text-slate-500">Колір:</span>
+                <input id="ev-color" type="color" value="#3b82f6" class="flex-1 h-8 rounded cursor-pointer bg-transparent border-none" />
+            </div>
         </div>
-        <div class="pt-8 space-y-2">
-            <button onclick="window.saveEvent()" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-700 transition-all">Заповнити цей час</button>
-            <button onclick="window.deleteEvent()" id="btn-delete" class="w-full py-2 text-red-500 font-bold uppercase text-[9px]">Очистити час</button>
-            <button onclick="window.closeModal()" class="w-full py-2 text-slate-400 font-bold uppercase text-[9px]">Назад</button>
+        <div class="pt-6 space-y-2">
+            <button onclick="window.saveEvent()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold uppercase text-[10px] transition-all">Зберегти</button>
+            <button onclick="window.deleteEvent()" id="btn-delete" class="w-full py-2 text-red-500 hover:text-red-400 font-bold uppercase text-[10px]">Видалити</button>
+            <button onclick="window.closeModal()" class="w-full py-2 text-slate-500 hover:text-slate-300 font-bold uppercase text-[10px]">Скасувати</button>
         </div>
     </div>
 
     <main id="canvas-container" class="flex-1 relative bg-slate-950 cursor-crosshair"></main>
 
     <script>
-        // CONFIG
-        const START_ANGLE = -Math.PI / 2; 
-        let CONFIG = { 
+        // CONFIGURATION
+        const START_ANGLE = -Math.PI / 2; // 00:00 справа
+        const CONFIG = { 
             radius: 8, 
             heightPct: 180, 
             renderDays: 30, 
-            baseDate: new Date().setHours(0,0,0,0),
-            resolution: 60 // 1 точка = 60 секунд (змініть на 1 для хардкору)
+            baseDate: new Date().setHours(0,0,0,0)
         };
-        let events = JSON.parse(localStorage.getItem('iphilini_v60_data')) || [];
+        
+        // GLOBAL STATE
+        let events = JSON.parse(localStorage.getItem('iphilini_v61_data')) || [];
         let editingId = null;
+        let minutePoints = null; // THREE.Points
 
+        // HELPERS
         const getDayHeight = () => (CONFIG.radius * (CONFIG.heightPct / 100));
 
-        // THREE JS INIT
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x020617, 0.015); // Атмосферний туман
-        
+        // INIT THREE.JS
         const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020617, 0.02);
+
         const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); // false for performance
+        camera.position.set(22, 25, 22);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio > 1 ? 1.5 : 1); // Opt for perf
+        renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        camera.position.set(25, 30, 25);
         controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
 
-        // SYSTEMS
-        let particlesGeometry = null;
-        let particlesMaterial = null;
-        let particlesSystem = null;
-        let markersSystem = null;
+        // TEXTURE FOR POINTS (Soft glow circle)
+        function createDotTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            
+            // Core
+            ctx.beginPath();
+            ctx.arc(32, 32, 14, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            
+            // Glow
+            const grad = ctx.createRadialGradient(32, 32, 14, 32, 32, 32);
+            grad.addColorStop(0, 'rgba(255,255,255,0.5)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(32, 32, 32, 0, Math.PI * 2);
+            ctx.fill();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+        const dotTexture = createDotTexture();
+
+        // MARKER "NOW"
         const nowMarker = new THREE.Mesh(
             new THREE.SphereGeometry(0.3, 16, 16),
-            new THREE.MeshBasicMaterial({ color: 0x60a5fa })
+            new THREE.MeshBasicMaterial({ color: 0x60a5fa, toneMapped: false })
         );
         scene.add(nowMarker);
 
-        // --- ATOMIC MATH ---
-        function getPointForTime(secondsFromBase) {
-            const hrs = secondsFromBase / 3600;
+        // --- THE MINUTE ENGINE ---
+        
+        function getCoordsForMinute(minuteIndex) {
+            // minuteIndex - це абсолютна хвилина від початку (0, 1, 2 ...)
+            const hrs = minuteIndex / 60;
             const angle = (hrs / 24) * Math.PI * 2 + START_ANGLE;
             const y = (hrs / 24) * getDayHeight();
             return {
@@ -129,226 +154,213 @@
             };
         }
 
-        function generateParticles() {
-            if (particlesSystem) { scene.remove(particlesSystem); particlesGeometry.dispose(); }
-            if (markersSystem) { scene.remove(markersSystem); }
-
-            const totalSeconds = CONFIG.renderDays * 24 * 3600;
-            const count = Math.floor(totalSeconds / CONFIG.resolution);
-            
-            particlesGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(count * 3);
-            const colors = new Float32Array(count * 3);
-            const sizes = new Float32Array(count);
-
-            // Основні частки часу
-            for (let i = 0; i < count; i++) {
-                const s = i * CONFIG.resolution;
-                const p = getPointForTime(s);
-                
-                positions[i*3] = p.x;
-                positions[i*3+1] = p.y;
-                positions[i*3+2] = p.z;
-
-                // Базовий колір (темно-сірий)
-                colors[i*3] = 0.2; // R
-                colors[i*3+1] = 0.25; // G
-                colors[i*3+2] = 0.35; // B
-                
-                sizes[i] = 1.0;
+        function buildMinuteCurve() {
+            if (minutePoints) {
+                scene.remove(minutePoints);
+                minutePoints.geometry.dispose();
             }
 
-            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            // Note: size attribute requires custom shader or PointsMaterial sizeAttenuation which is global.
-            // We'll use color to distinguish for now.
+            const totalMinutes = CONFIG.renderDays * 24 * 60;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(totalMinutes * 3);
+            const colors = new Float32Array(totalMinutes * 3);
+            const sizes = new Float32Array(totalMinutes);
 
-            particlesMaterial = new THREE.PointsMaterial({ 
-                size: 0.15, 
-                vertexColors: true, 
-                sizeAttenuation: true,
-                map: createDotTexture(),
-                alphaTest: 0.5,
-                transparent: true
-            });
+            // 1. GENERATE BASE STRUCTURE
+            for (let i = 0; i < totalMinutes; i++) {
+                const pos = getCoordsForMinute(i);
+                positions[i*3] = pos.x;
+                positions[i*3+1] = pos.y;
+                positions[i*3+2] = pos.z;
 
-            particlesSystem = new THREE.Points(particlesGeometry, particlesMaterial);
-            scene.add(particlesSystem);
+                // Default Colors
+                const isHour = i % 60 === 0;
+                const isDay = i % (60 * 24) === 0;
 
-            // МАРКЕРИ (Окремий систем для більших точок)
-            generateMarkers();
-            
-            // Застосувати події (пофарбувати)
-            paintEvents();
-
-            document.getElementById('loader').style.opacity = 0;
-            setTimeout(()=>document.getElementById('loader').style.display='none', 500);
-        }
-
-        function generateMarkers() {
-            const markerGeo = new THREE.BufferGeometry();
-            const mPos = [];
-            const mCol = [];
-            
-            // Кожна година
-            for (let h = 0; h <= CONFIG.renderDays * 24; h++) {
-                const p = getPointForTime(h * 3600);
-                mPos.push(p.x, p.y, p.z);
-                
-                if (h % 24 === 0) { // Новий день
-                    mCol.push(0.2, 0.4, 1.0); // Blue
+                if (isDay) {
+                    colors[i*3] = 0.9; colors[i*3+1] = 0.7; colors[i*3+2] = 0.2; // Gold Day
+                    sizes[i] = 1.0;
+                } else if (isHour) {
+                    colors[i*3] = 0.3; colors[i*3+1] = 0.4; colors[i*3+2] = 0.5; // Brighter Hour
+                    sizes[i] = 0.6;
                 } else {
-                    mCol.push(0.3, 0.3, 0.3); // Dim Grey
+                    colors[i*3] = 0.15; colors[i*3+1] = 0.18; colors[i*3+2] = 0.25; // Dark Blue Minute
+                    sizes[i] = 0.25; // Small dot
                 }
             }
-            markerGeo.setAttribute('position', new THREE.Float32BufferAttribute(mPos, 3));
-            markerGeo.setAttribute('color', new THREE.Float32BufferAttribute(mCol, 3));
-            
-            markersSystem = new THREE.Points(markerGeo, new THREE.PointsMaterial({
-                size: 0.5,
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.5, // Base scaler
                 vertexColors: true,
-                map: createDotTexture(),
-                alphaTest: 0.5
-            }));
-            scene.add(markersSystem);
+                map: dotTexture,
+                alphaTest: 0.1,
+                transparent: true,
+                opacity: 0.9,
+                sizeAttenuation: true
+            });
+
+            minutePoints = new THREE.Points(geometry, material);
+            scene.add(minutePoints);
+            
+            applyEventsToMinutes(); // Фарбуємо
         }
 
-        function paintEvents() {
-            const colors = particlesSystem.geometry.attributes.color;
-            const count = colors.count;
+        function applyEventsToMinutes() {
+            if (!minutePoints) return;
+            
+            const colorAttr = minutePoints.geometry.attributes.color;
+            const totalMinutes = colorAttr.count;
 
-            // Reset colors
-            for (let i = 0; i < count; i++) {
-                // Відновлення "темного" фону
-                const isHour = (i * CONFIG.resolution) % 3600 < CONFIG.resolution;
-                if(isHour) { colors.setXYZ(i, 0.3, 0.3, 0.4); } 
-                else { colors.setXYZ(i, 0.12, 0.15, 0.22); }
+            // 1. Reset to defaults (Dark Grey/Blue)
+            for (let i = 0; i < totalMinutes; i++) {
+                const isHour = i % 60 === 0;
+                const isDay = i % (60 * 24) === 0;
+                
+                if (isDay) { colorAttr.setXYZ(i, 0.9, 0.7, 0.2); }
+                else if (isHour) { colorAttr.setXYZ(i, 0.4, 0.5, 0.6); }
+                else { colorAttr.setXYZ(i, 0.15, 0.18, 0.25); }
             }
 
-            // Paint Events
+            // 2. Paint Events
             events.forEach(ev => {
-                const col = new THREE.Color(ev.color);
+                const evCol = new THREE.Color(ev.color);
                 
-                // Helper to paint range
                 const paintRange = (startMs, endMs) => {
-                    const startIdx = Math.floor((startMs - CONFIG.baseDate) / 1000 / CONFIG.resolution);
-                    const endIdx = Math.floor((endMs - CONFIG.baseDate) / 1000 / CONFIG.resolution);
+                    // Конвертуємо час в індекс хвилини
+                    let startMin = Math.floor((startMs - CONFIG.baseDate) / 60000);
+                    let endMin = Math.floor((endMs - CONFIG.baseDate) / 60000);
                     
-                    for (let i = startIdx; i < endIdx; i++) {
-                        if (i >= 0 && i < count) {
-                            colors.setXYZ(i, col.r, col.g, col.b);
-                        }
+                    // Обрізаємо межі
+                    if (startMin < 0) startMin = 0;
+                    if (endMin > totalMinutes) endMin = totalMinutes;
+
+                    for (let i = startMin; i < endMin; i++) {
+                        // Змішуємо колір події трохи, щоб зберегти структуру
+                        // Але для чіткості просто замінимо
+                        colorAttr.setXYZ(i, evCol.r, evCol.g, evCol.b);
                     }
                 };
 
                 const start = new Date(ev.start);
                 const end = new Date(ev.end);
-                
+                const oneDayMs = 86400000;
+
                 if (ev.repeat === 'daily') {
+                    // Повторюємо для кожного дня рендеру
                     for(let d=0; d<CONFIG.renderDays; d++) {
-                        const s = new Date(start.getTime() + d*86400000);
-                        const e = new Date(end.getTime() + d*86400000);
-                        paintRange(s.getTime(), e.getTime());
+                        paintRange(
+                            start.getTime() + (d * oneDayMs), 
+                            end.getTime() + (d * oneDayMs)
+                        );
                     }
                 } else {
                     paintRange(start.getTime(), end.getTime());
                 }
             });
 
-            colors.needsUpdate = true;
+            colorAttr.needsUpdate = true;
             updateSidebar();
-        }
-
-        function createDotTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 32; canvas.height = 32;
-            const ctx = canvas.getContext('2d');
-            ctx.beginPath();
-            ctx.arc(16, 16, 14, 0, Math.PI * 2);
-            ctx.fillStyle = 'white';
-            ctx.fill();
-            const tex = new THREE.CanvasTexture(canvas);
-            return tex;
         }
 
         // INTERACTION
         const raycaster = new THREE.Raycaster();
-        raycaster.params.Points.threshold = 0.5; // Чутливість "магніту"
+        raycaster.params.Points.threshold = 0.3; // Точність наведення
         const mouse = new THREE.Vector2();
 
         container.addEventListener('pointermove', (e) => {
             const rect = container.getBoundingClientRect();
             mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
             mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+            
             raycaster.setFromCamera(mouse, camera);
-
-            // Перевіряємо тільки основну хмару (вона містить всю інформацію)
-            const hits = raycaster.intersectObject(particlesSystem);
+            const intersects = raycaster.intersectObject(minutePoints);
+            
             const t = document.getElementById('tooltip');
 
-            if (hits.length > 0) {
-                const index = hits[0].index;
-                // Час = базовий + індекс * роздільну здатність
-                const timeMs = CONFIG.baseDate + index * CONFIG.resolution * 1000;
+            if (intersects.length > 0) {
+                const index = intersects[0].index; // Це і є наша хвилина!
+                const timeMs = CONFIG.baseDate + index * 60000;
                 const date = new Date(timeMs);
-                
-                // Перевірка, чи це подія (за кольором)
-                const colAttr = particlesSystem.geometry.attributes.color;
-                const r = colAttr.getX(index);
-                // Простий чек: якщо колір яскравий (>0.4), це ймовірно подія
-                const isEvent = r > 0.4 || colAttr.getY(index) > 0.4; // Груба евристика, але працює візуально
 
-                t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
+                // Отримуємо колір точки, щоб зрозуміти чи це подія
+                const r = minutePoints.geometry.attributes.color.getX(index);
+                const isEvent = r > 0.4 && !(index % 60 === 0); // Груба перевірка (не темний і не маркер)
+
+                t.style.display = 'block'; 
+                t.style.left = e.clientX + 15 + 'px'; 
+                t.style.top = e.clientY + 'px';
                 
-                // Знайти подію, якщо це подія
-                let foundEvent = null;
-                if(isEvent) {
-                    // Це повільніше, але точно. Для продакшену можна використовувати хеш-мапу індексів.
-                    // Для прототипу перебираємо події.
-                    // Враховуємо повторення
-                     // ... спрощено для демо:
-                     t.innerHTML = `<div class="text-[10px] text-slate-400">ЧАС</div><div class="font-mono font-bold text-lg">${date.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</div><div class="text-[10px] text-slate-500">${date.toLocaleDateString('uk')}</div>`;
+                const timeStr = `<span class="font-mono text-lg font-bold">${date.toLocaleTimeString('uk', {hour:'2-digit', minute:'2-digit'})}</span>`;
+                const dateStr = `<div class="text-[10px] text-slate-400 mt-1">${date.toLocaleDateString('uk', {weekday:'short', day:'numeric'})}</div>`;
+
+                if (isEvent) {
+                    t.innerHTML = `<div class="text-[9px] text-blue-400 font-bold uppercase mb-1">Зайнято</div>${timeStr}${dateStr}`;
+                    t.style.borderColor = '#3b82f6';
                 } else {
-                    t.innerHTML = `<div class="font-mono font-bold text-blue-300">${date.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</div>`;
+                    t.innerHTML = `${timeStr}${dateStr}`;
+                    t.style.borderColor = '#334155';
                 }
                 
-                // Highlight cursor pos
-                document.body.style.cursor = 'crosshair';
+                document.body.style.cursor = 'pointer';
             } else {
-                t.style.display = 'none'; document.body.style.cursor = 'default';
+                t.style.display = 'none';
+                document.body.style.cursor = 'default';
             }
         });
 
         container.addEventListener('pointerup', (e) => {
             raycaster.setFromCamera(mouse, camera);
-            const hits = raycaster.intersectObject(particlesSystem);
-            if(hits.length > 0) {
-                const index = hits[0].index;
-                const timeMs = CONFIG.baseDate + index * CONFIG.resolution * 1000;
+            const intersects = raycaster.intersectObject(minutePoints);
+            if(intersects.length > 0) {
+                const index = intersects[0].index;
+                const timeMs = CONFIG.baseDate + index * 60000;
                 const date = new Date(timeMs);
                 
-                // Тут логіка пошуку події для редагування
-                // Для демо просто відкриваємо нову на цьому місці
-                window.openModal({ id: null, summary: "", start: date, end: new Date(date.getTime() + 3600000), color: "#3b82f6", repeat: 'none' });
+                // Знаходимо подію (спрощено)
+                // Для повної версії тут треба ID мапу
+                window.openModal({ 
+                    id: null, 
+                    summary: "", 
+                    start: date, 
+                    end: new Date(date.getTime() + 60 * 60000), // +1 година за замовчуванням
+                    color: "#3b82f6", 
+                    repeat: 'none' 
+                });
             }
         });
 
-        // UI & LOGIC
+        // UI LOGIC
         window.openModal = (ev) => {
             editingId = ev.id;
             document.getElementById('ev-summary').value = ev.summary;
             document.getElementById('ev-color').value = ev.color;
+            document.getElementById('ev-repeat').value = ev.repeat || 'none';
+            
             const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
             document.getElementById('ev-start').value = toISO(new Date(ev.start));
             document.getElementById('ev-end').value = toISO(new Date(ev.end));
+
+            document.getElementById('btn-delete').style.display = editingId ? 'block' : 'none';
+            
             const modal = document.getElementById('event-modal');
-            modal.style.display = 'flex'; setTimeout(() => modal.style.transform = 'translateX(0)', 10);
+            modal.style.display = 'flex'; 
+            setTimeout(() => modal.style.transform = 'translateX(0)', 10);
+        };
+
+        window.closeModal = () => {
+            const modal = document.getElementById('event-modal');
+            modal.style.transform = 'translateX(-100%)'; 
+            setTimeout(() => modal.style.display = 'none', 200);
         };
 
         window.saveEvent = () => {
             const data = {
                 id: editingId || Date.now(),
-                summary: document.getElementById('ev-summary').value || "Частка часу",
+                summary: document.getElementById('ev-summary').value || "Подія",
                 start: new Date(document.getElementById('ev-start').value).getTime(),
                 end: new Date(document.getElementById('ev-end').value).getTime(),
                 repeat: document.getElementById('ev-repeat').value,
@@ -356,52 +368,66 @@
             };
             if(editingId) events = events.map(e => e.id === editingId ? data : e);
             else events.push(data);
-            localStorage.setItem('iphilini_v60_data', JSON.stringify(events));
-            paintEvents(); window.closeModal();
+            localStorage.setItem('iphilini_v61_data', JSON.stringify(events));
+            applyEventsToMinutes(); 
+            window.closeModal();
         };
 
-        window.closeModal = () => {
-            const modal = document.getElementById('event-modal');
-            modal.style.transform = 'translateX(-100%)'; setTimeout(() => modal.style.display = 'none', 300);
+        window.deleteEvent = () => {
+            events = events.filter(e => e.id !== editingId);
+            localStorage.setItem('iphilini_v61_data', JSON.stringify(events));
+            applyEventsToMinutes();
+            window.closeModal();
         };
-        
-        window.deleteEvent = () => { events = events.filter(e => e.id !== editingId); localStorage.setItem('iphilini_v60_data', JSON.stringify(events)); paintEvents(); window.closeModal(); };
 
         function updateSidebar() {
-            const l = document.getElementById('sidebar-event-list'); l.innerHTML = '';
+            const l = document.getElementById('sidebar-event-list');
+            l.innerHTML = '';
             events.forEach(ev => {
                 const el = document.createElement('div');
-                el.className = 'p-3 bg-white rounded-lg border-l-4 text-xs shadow-sm cursor-pointer hover:shadow-md';
+                el.className = 'p-3 bg-slate-800 rounded border-l-2 text-[10px] cursor-pointer hover:bg-slate-700 transition-colors text-slate-300';
                 el.style.borderLeftColor = ev.color;
-                el.innerHTML = `<b>${ev.summary}</b>`;
+                el.innerHTML = `<div class="font-bold text-white mb-1 text-xs">${ev.summary}</div>${new Date(ev.start).toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})} - ${new Date(ev.end).toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}`;
                 el.onclick = () => window.openModal(ev);
                 l.appendChild(el);
             });
         }
 
-        // Inputs
-        document.getElementById('in-height-pct').onchange = (e) => { CONFIG.heightPct = parseInt(e.target.value); generateParticles(); };
-        document.getElementById('in-days').onchange = (e) => { CONFIG.renderDays = parseInt(e.target.value); generateParticles(); };
-        document.getElementById('in-res').onchange = (e) => { 
-            CONFIG.resolution = parseInt(e.target.value); 
-            document.getElementById('loader').style.display='flex'; 
-            document.getElementById('loader').style.opacity=1;
-            setTimeout(generateParticles, 100); 
-        };
+        // INPUTS
+        document.getElementById('in-height-pct').addEventListener('input', (e) => { 
+            CONFIG.heightPct = parseInt(e.target.value); 
+            buildMinuteCurve(); 
+        });
+        document.getElementById('in-days').addEventListener('change', (e) => { 
+            CONFIG.renderDays = parseInt(e.target.value); 
+            buildMinuteCurve(); 
+        });
 
+        // ANIMATION LOOP
         function animate() {
             requestAnimationFrame(animate);
-            const now = new Date();
-            const nowSec = (now - CONFIG.baseDate) / 1000;
-            const p = getPointForTime(nowSec);
-            nowMarker.position.set(p.x, p.y, p.z);
             
+            // Move NOW marker
+            const now = new Date();
+            const diffMs = now - CONFIG.baseDate;
+            const minutesPassed = diffMs / 60000;
+            
+            // Smooth interpolation between minutes
+            const pos = getCoordsForMinute(minutesPassed);
+            nowMarker.position.set(pos.x, pos.y, pos.z);
+
+            // Pulsing effect
+            const s = 1 + Math.sin(Date.now() * 0.003) * 0.2;
+            nowMarker.scale.set(s, s, s);
+
             document.getElementById('live-clock').innerText = now.toLocaleTimeString('uk');
-            controls.update(); renderer.render(scene, camera);
+            
+            controls.update();
+            renderer.render(scene, camera);
         }
 
         // START
-        generateParticles();
+        buildMinuteCurve();
         animate();
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
