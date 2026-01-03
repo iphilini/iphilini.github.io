@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPHILINI | Full Sync v5.7</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020617; font-family: 'Inter', sans-serif; }
+        .side-panel { background: #ffffff; border-right: 1px solid #e2e8f0; z-index: 50; }
+        #tooltip { position: absolute; pointer-events: none; display: none; background: #1e293b; color: white; padding: 12px; border-radius: 8px; font-size: 11px; z-index: 1000; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .num-input { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 6px; font-weight: 800; width: 60px; text-align: center; }
+    </style>
+</head>
+<body class="flex">
+
+    <div id="tooltip"></div>
+
+    <aside class="side-panel w-72 h-screen flex flex-col shadow-2xl">
+        <div class="p-6">
+            <h1 class="text-xl font-black text-slate-900 italic tracking-tighter uppercase leading-none">IPHILINI<br><span class="text-blue-600 text-[9px] not-italic tracking-[0.3em]">SYNC ENGINE 5.7</span></h1>
+            <p id="live-clock" class="text-[11px] font-mono text-slate-500 font-bold mt-4 p-2 bg-slate-100 rounded-lg text-center"></p>
+        </div>
+
+        <div class="px-6 space-y-3 mb-6">
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase">
+                <span>Масштаб витка %</span>
+                <input id="in-height-pct" type="number" value="180" class="num-input">
+            </div>
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase">
+                <span>Днів</span>
+                <input id="in-days" type="number" value="30" class="num-input">
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-6 pb-10 border-t pt-4">
+            <div id="sidebar-event-list" class="space-y-2"></div>
+        </div>
+    </aside>
+
+    <div id="event-modal" class="fixed inset-y-0 left-72 w-80 bg-white z-[2000] shadow-2xl transform -translate-x-full transition-transform duration-300 hidden flex-col p-8 border-r">
+        <h2 class="text-lg font-black text-slate-900 uppercase italic mb-8">Подія</h2>
+        <div class="space-y-5 flex-1">
+            <input id="ev-summary" type="text" placeholder="Назва" class="w-full p-4 bg-slate-50 rounded-xl font-bold border-none outline-none" />
+            <input id="ev-start" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold" />
+            <input id="ev-end" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold" />
+            <select id="ev-repeat" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm">
+                <option value="none">Без повторів</option>
+                <option value="daily">Щодня</option>
+                <option value="weekly">Щотижня</option>
+            </select>
+            <input id="ev-color" type="color" value="#3b82f6" class="w-full h-12 rounded-xl cursor-pointer bg-transparent" />
+        </div>
+        <div class="pt-8 space-y-2">
+            <button onclick="window.saveEvent()" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs">Зберегти</button>
+            <button onclick="window.deleteEvent()" id="btn-delete" class="w-full py-2 text-red-500 font-bold uppercase text-[9px]">Видалити</button>
+            <button onclick="window.closeModal()" class="w-full py-2 text-slate-400 font-bold uppercase text-[9px]">Скасувати</button>
+        </div>
+    </div>
+
+    <main id="canvas-container" class="flex-1 relative"></main>
+
+    <script>
+        const START_ANGLE = -Math.PI / 2; // Рівно 00:00 справа
+        let CONFIG = { radius: 8, heightPct: 180, renderDays: 30, baseDate: new Date().setHours(0,0,0,0) };
+        let events = JSON.parse(localStorage.getItem('iphilini_v57_data')) || [];
+        let editingId = null;
+
+        const getDayHeight = () => (CONFIG.radius * (CONFIG.heightPct / 100));
+
+        const scene = new THREE.Scene();
+        const container = document.getElementById('canvas-container');
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(20, 25, 20);
+        controls.enableDamping = true;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const pLight = new THREE.PointLight(0xffffff, 1.2);
+        pLight.position.set(10, 30, 10);
+        scene.add(pLight);
+        
+        const spiralGroup = new THREE.Group();
+        const gridGroup = new THREE.Group();
+        const eventGroup = new THREE.Group();
+        scene.add(spiralGroup, gridGroup, eventGroup);
+
+        const nowMarker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.35, 32, 32),
+            new THREE.MeshStandardMaterial({ color: 0x60a5fa, emissive: 0x3b82f6, emissiveIntensity: 1.5 })
+        );
+        scene.add(nowMarker);
+
+        // --- ЖОРСТКА СИНХРО-МАТЕМАТИКА ---
+        function dateToPos(date) {
+            const hrsSinceBase = (date - CONFIG.baseDate) / 3600000;
+            const angle = (hrsSinceBase / 24) * Math.PI * 2 + START_ANGLE;
+            const y = (hrsSinceBase / 24) * getDayHeight();
+            return new THREE.Vector3(Math.cos(angle) * CONFIG.radius, y, Math.sin(angle) * CONFIG.radius);
+        }
+
+        // Тепер posToDate враховує кут точки, а не тільки висоту Y, для 100% точності наведення
+        function posToDate(point) {
+            const angle = Math.atan2(point.z, point.x);
+            let normalizedAngle = angle - START_ANGLE;
+            while (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
+            
+            const dayIndex = Math.floor(point.y / getDayHeight());
+            const dayFraction = normalizedAngle / (Math.PI * 2);
+            const totalHrs = (dayIndex + dayFraction) * 24;
+            
+            return new Date(CONFIG.baseDate + totalHrs * 3600000);
+        }
+
+        function buildSpiral() {
+            spiralGroup.clear(); gridGroup.clear();
+            const totalHrs = 24 * CONFIG.renderDays;
+            const pts = [];
+            for (let h = 0; h < totalHrs; h += 0.1) pts.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
+            
+            spiralGroup.add(new THREE.Mesh(
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 250 * CONFIG.renderDays, 0.04, 8, false),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b })
+            ));
+
+            const sensor = new THREE.Mesh(
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 120 * CONFIG.renderDays, 0.5, 8, false),
+                new THREE.MeshBasicMaterial({ visible: false })
+            );
+            sensor.userData = { type: 'wire' };
+            spiralGroup.add(sensor);
+
+            for (let h = 0; h <= totalHrs; h++) {
+                const date = new Date(CONFIG.baseDate + h * 3600000);
+                const pos = dateToPos(date);
+                if (h % 24 === 0) {
+                    const m = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.3, 16, 16), 
+                        new THREE.MeshStandardMaterial({ color: date.getDay() === 1 ? 0xf59e0b : 0x3b82f6 })
+                    );
+                    m.position.copy(pos); 
+                    m.userData = { type: 'day', label: date.toLocaleDateString('uk', {day:'numeric', month:'short'}) };
+                    gridGroup.add(m);
+                } else {
+                    const t = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+                    t.position.copy(pos); 
+                    t.userData = { type: 'hour', timeStr: date.toLocaleTimeString('uk', {hour:'2-digit', minute:'2-digit'}) };
+                    gridGroup.add(t);
+                }
+            }
+        }
+
+        function renderEvents() {
+            eventGroup.clear();
+            const listEl = document.getElementById('sidebar-event-list');
+            listEl.innerHTML = "";
+
+            events.forEach(ev => {
+                const start = new Date(ev.start);
+                const end = new Date(ev.end);
+                let instances = [{ s: start, e: end }];
+                
+                if (ev.repeat === 'daily') {
+                    for(let i=1; i<CONFIG.renderDays; i++) 
+                        instances.push({ s: new Date(start.getTime() + i*86400000), e: new Date(end.getTime() + i*86400000) });
+                }
+
+                instances.forEach(inst => {
+                    const dur = (inst.e - inst.s) / 3600000;
+                    const pts = [];
+                    for (let i = 0; i <= dur; i += 0.2) pts.push(dateToPos(new Date(inst.s.getTime() + i * 3600000)));
+                    if(pts.length > 1) {
+                        const m = new THREE.Mesh(
+                            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.25, 12, false),
+                            new THREE.MeshStandardMaterial({ color: ev.color, transparent: true, opacity: 0.8 })
+                        );
+                        m.userData = { type: 'event', id: ev.id, summary: ev.summary, time: inst.s.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'}) };
+                        eventGroup.add(m);
+                    }
+                });
+
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-white rounded-xl border-l-4 cursor-pointer hover:shadow-md text-[11px] border border-slate-100 shadow-sm transition-all';
+                item.style.borderLeftColor = ev.color;
+                item.innerHTML = `<b>${ev.summary}</b><div class="text-slate-400 font-bold">${start.toLocaleDateString('uk')}</div>`;
+                item.onclick = () => window.openModal(ev);
+                listEl.appendChild(item);
+            });
+            localStorage.setItem('iphilini_v57_data', JSON.stringify(events));
+        }
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hoveredObj = null;
+
+        container.addEventListener('pointermove', (e) => {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
