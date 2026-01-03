@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPHILINI | Precision Spiral v5.2</title>
+    <title>IPHILINI | Full Control v5.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #f8fafc; font-family: 'Inter', sans-serif; }
-        .side-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); border-right: 1px solid #e2e8f0; z-index: 50; }
+        .side-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-right: 1px solid #e2e8f0; z-index: 50; }
         #tooltip { position: absolute; pointer-events: none; display: none; background: #0f172a; color: white; padding: 10px; border-radius: 12px; font-size: 11px; z-index: 1000; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .calendar-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
         .active-day { background: #3b82f6 !important; color: white !important; }
-        .glass-input { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; font-weight: 700; width: 100%; outline: none; }
+        .num-input { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; font-weight: 900; width: 60px; text-align: center; color: #1e293b; }
     </style>
 </head>
 <body class="flex">
@@ -22,56 +22,65 @@
     <div id="tooltip"></div>
 
     <aside class="side-panel w-80 h-screen flex flex-col shadow-2xl">
-        <div class="p-8">
-            <h1 class="text-2xl font-black text-slate-900 italic tracking-tighter uppercase">IPHILINI <span class="text-blue-600 block text-[10px] not-italic tracking-[0.3em]">PRECISION v5.2</span></h1>
-            <p id="live-clock" class="text-[10px] font-mono text-slate-400 font-bold uppercase mt-2"></p>
+        <div class="p-8 pb-4">
+            <h1 class="text-2xl font-black text-slate-900 italic tracking-tighter uppercase leading-none">IPHILINI<br><span class="text-blue-600 text-[10px] not-italic tracking-[0.3em]">CONTROL v5.3</span></h1>
+            <p id="live-clock" class="text-[10px] font-mono text-slate-400 font-bold uppercase mt-3"></p>
+        </div>
+
+        <div class="px-8 space-y-2 mb-6">
+            <div class="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <span class="text-[9px] font-black text-slate-400 uppercase italic">Крок %</span>
+                <input id="in-height-pct" type="number" value="150" step="10" class="num-input">
+            </div>
+            <div class="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <span class="text-[9px] font-black text-slate-400 uppercase italic">Днів</span>
+                <input id="in-days" type="number" value="45" step="1" class="num-input">
+            </div>
         </div>
 
         <div class="px-8 mb-6">
             <div class="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm">
-                <div id="cal-month" class="text-[9px] font-black uppercase text-slate-400 mb-3 text-center tracking-widest italic"></div>
+                <div id="cal-month" class="text-[9px] font-black uppercase text-slate-400 mb-3 text-center tracking-widest italic text-blue-600"></div>
                 <div id="calendar-grid" class="grid grid-cols-7 gap-1"></div>
             </div>
         </div>
 
         <div class="flex-1 overflow-y-auto px-8 pb-10">
-            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic text-center">— План подій —</h3>
+            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic text-center">— Розклад —</h3>
             <div id="sidebar-event-list" class="space-y-3"></div>
         </div>
     </aside>
 
-    <div id="event-modal" class="fixed inset-y-0 left-80 w-80 bg-white z-[2000] shadow-2xl transform -translate-x-full transition-transform duration-500 hidden flex-col p-10 border-l border-slate-100">
-        <h2 class="text-xl font-black text-slate-900 uppercase italic mb-8">Параметри</h2>
+    <div id="event-modal" class="fixed inset-y-0 left-80 w-80 bg-white z-[2000] shadow-2xl transform -translate-x-full transition-transform duration-500 hidden flex-col p-10">
+        <h2 class="text-xl font-black text-slate-900 uppercase italic mb-8">Подія</h2>
         <div class="space-y-4 flex-1">
-            <input id="ev-summary" type="text" placeholder="Назва" class="glass-input" />
-            <input id="ev-start" type="datetime-local" class="glass-input text-sm" />
-            <input id="ev-end" type="datetime-local" class="glass-input text-sm" />
-            <div class="space-y-2">
-                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 italic">Повторювати</label>
-                <select id="ev-repeat" class="glass-input">
-                    <option value="none">Немає</option>
-                    <option value="daily">Щодня</option>
-                    <option value="weekly">Щотижня</option>
-                </select>
-            </div>
-            <input id="ev-color" type="color" class="w-full h-12 rounded-xl cursor-pointer bg-transparent border-none" />
+            <input id="ev-summary" type="text" placeholder="Що плануємо?" class="w-full p-4 bg-slate-50 rounded-xl font-bold border border-slate-100 outline-none focus:border-blue-500" />
+            <input id="ev-start" type="datetime-local" class="w-full p-4 bg-slate-50 rounded-xl font-bold text-sm" />
+            <input id="ev-end" type="datetime-local" class="w-full p-4 bg-slate-50 rounded-xl font-bold text-sm" />
+            <select id="ev-repeat" class="w-full p-4 bg-slate-50 rounded-xl font-bold text-sm appearance-none">
+                <option value="none">Без повторів</option>
+                <option value="daily">Щодня</option>
+                <option value="weekly">Щотижня</option>
+            </select>
+            <input id="ev-color" type="color" value="#3b82f6" class="w-full h-12 rounded-xl cursor-pointer bg-transparent border-none" />
         </div>
         <div class="pt-6 space-y-2">
-            <button onclick="window.saveEvent()" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-slate-900 transition-all">Зберегти</button>
-            <button onclick="window.deleteEvent()" class="w-full py-2 text-red-400 font-bold uppercase text-[9px]">Видалити подію</button>
+            <button onclick="window.saveEvent()" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-slate-900">Зберегти</button>
+            <button onclick="window.deleteEvent()" id="btn-delete" class="w-full py-2 text-red-400 font-bold uppercase text-[9px]">Видалити</button>
             <button onclick="window.closeModal()" class="w-full py-2 text-slate-400 font-bold uppercase text-[9px]">Закрити</button>
         </div>
     </div>
 
-    <main id="canvas-container" class="flex-1 relative bg-slate-50"></main>
+    <main id="canvas-container" class="flex-1 relative bg-slate-100"></main>
 
     <script>
         let CONFIG = { radius: 8, heightPct: 150, renderDays: 45, baseDate: new Date().setHours(0,0,0,0) };
-        let events = JSON.parse(localStorage.getItem('iphilini_v52_data')) || [];
+        let events = JSON.parse(localStorage.getItem('iphilini_v53_data')) || [];
         let editingId = null;
 
         const getDayHeight = () => (CONFIG.radius * (CONFIG.heightPct / 100));
 
+        // THREE JS SETUP
         const scene = new THREE.Scene();
         const container = document.getElementById('canvas-container');
         const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
@@ -99,35 +108,35 @@
         );
         scene.add(nowMarker);
 
-        // Математичне ядро: 1 оберт = 24 години
+        // MATH
         function dateToPos(date) {
-            const timeDiff = date - CONFIG.baseDate;
-            const hrs = timeDiff / 3600000;
+            const hrs = (date - CONFIG.baseDate) / 3600000;
             const angle = (hrs / 24) * Math.PI * 2;
-            return new THREE.Vector3(
-                Math.cos(angle) * CONFIG.radius, 
-                (hrs / 24) * getDayHeight(), 
-                Math.sin(angle) * CONFIG.radius
-            );
+            return new THREE.Vector3(Math.cos(angle) * CONFIG.radius, (hrs / 24) * getDayHeight(), Math.sin(angle) * CONFIG.radius);
         }
         function posToDate(y) { return new Date(CONFIG.baseDate + (y / getDayHeight() * 24) * 3600000); }
 
+        // DRAWING
         function buildSpiral() {
             spiralGroup.clear(); gridGroup.clear();
             const totalHrs = 24 * CONFIG.renderDays;
             const pts = [];
             for (let h = 0; h < totalHrs; h += 0.1) pts.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
             
+            // Основна лінія (Контрастна Slate)
             spiralGroup.add(new THREE.Mesh(
-                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 200 * CONFIG.renderDays, 0.05, 8, false),
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 150 * CONFIG.renderDays, 0.05, 8, false),
                 new THREE.MeshStandardMaterial({ color: 0x475569 })
             ));
 
-            const hz = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 150 * CONFIG.renderDays, 0.6, 8, false), new THREE.MeshBasicMaterial({visible:false}));
-            hz.userData = { type: 'spiral' };
-            spiralGroup.add(hz);
+            // Прозора зона для кліку (товста)
+            const clickZone = new THREE.Mesh(
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 100 * CONFIG.renderDays, 0.6, 8, false),
+                new THREE.MeshBasicMaterial({ visible: false })
+            );
+            clickZone.userData = { type: 'spiral_wire' };
+            spiralGroup.add(clickZone);
 
-            // Поділки часу
             for (let h = 0; h <= totalHrs; h++) {
                 const date = new Date(CONFIG.baseDate + h * 3600000);
                 const pos = dateToPos(date);
@@ -135,16 +144,12 @@
                     const isMon = date.getDay() === 1;
                     const m = new THREE.Mesh(
                         new THREE.SphereGeometry(0.28, 16, 16), 
-                        new THREE.MeshStandardMaterial({ color: isMon ? 0xf59e0b : 0x2563eb, emissive: isMon ? 0xf59e0b : 0x2563eb, emissiveIntensity: 0.3 })
+                        new THREE.MeshStandardMaterial({ color: isMon ? 0xf59e0b : 0x2563eb })
                     );
                     m.position.copy(pos); 
-                    m.userData = { 
-                        type: 'dayMarker', 
-                        date: date, 
-                        label: date.toLocaleDateString('uk', {weekday: 'long', day: 'numeric', month: 'long'}) 
-                    };
+                    m.userData = { type: 'dayMarker', date: date, label: date.toLocaleDateString('uk', {weekday: 'long', day: 'numeric', month: 'long'}) };
                     gridGroup.add(m);
-                } else {
+                } else if (h % 3 === 0) {
                     const t = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
                     t.position.copy(pos); gridGroup.add(t);
                 }
@@ -159,53 +164,52 @@
             events.forEach(ev => {
                 const start = new Date(ev.start);
                 const end = new Date(ev.end);
-                const duration = end - start;
-
-                // Генерація циклічних екземплярів
                 let instances = [ { s: start, e: end } ];
+                
                 if (ev.repeat === 'daily') {
-                    for(let i=1; i<CONFIG.renderDays; i++) {
+                    for(let i=1; i<CONFIG.renderDays; i++) 
                         instances.push({ s: new Date(start.getTime() + i*86400000), e: new Date(end.getTime() + i*86400000) });
-                    }
                 } else if (ev.repeat === 'weekly') {
-                    for(let i=1; i<7; i++) {
+                    for(let i=1; i<7; i++) 
                         instances.push({ s: new Date(start.getTime() + i*7*86400000), e: new Date(end.getTime() + i*7*86400000) });
-                    }
                 }
 
                 instances.forEach(inst => {
+                    const dur = (inst.e - inst.s) / 3600000;
                     const pts = [];
-                    const durHrs = (inst.e - inst.s) / 3600000;
-                    for (let i = 0; i <= durHrs; i += 0.2) pts.push(dateToPos(new Date(inst.s.getTime() + i * 3600000)));
+                    for (let i = 0; i <= dur; i += 0.2) pts.push(dateToPos(new Date(inst.s.getTime() + i * 3600000)));
                     if(pts.length > 1) {
-                        const mesh = new THREE.Mesh(
+                        const m = new THREE.Mesh(
                             new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 64, 0.2, 12, false),
                             new THREE.MeshStandardMaterial({ color: ev.color, transparent: true, opacity: 0.7 })
                         );
-                        mesh.userData = { type: 'event', id: ev.id, summary: ev.summary };
-                        eventGroup.add(mesh);
+                        m.userData = { type: 'event', id: ev.id, summary: ev.summary };
+                        eventGroup.add(m);
                     }
                 });
 
-                // Тільки головний запис у списку
                 const item = document.createElement('div');
-                item.className = 'p-3 bg-white/50 rounded-xl shadow-sm border-l-4 cursor-pointer hover:bg-white transition-all text-[11px]';
+                item.className = 'p-3 bg-white/60 rounded-xl shadow-sm border-l-4 cursor-pointer hover:bg-white transition-all text-[11px]';
                 item.style.borderLeftColor = ev.color;
                 item.innerHTML = `<b>${ev.summary}</b><div class="text-[9px] text-slate-400 mt-1 uppercase">${ev.repeat !== 'none' ? '🔄 ' : ''}${start.toLocaleDateString('uk')}</div>`;
                 item.onclick = () => window.openModal(ev);
                 listEl.appendChild(item);
             });
-            localStorage.setItem('iphilini_v52_data', JSON.stringify(events));
+            localStorage.setItem('iphilini_v53_data', JSON.stringify(events));
         }
 
-        // INTERACTION
+        // INTERACTIONS
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
+        let isDragging = false;
 
+        container.addEventListener('pointerdown', () => isDragging = false);
         container.addEventListener('pointermove', (e) => {
+            isDragging = true;
             const rect = container.getBoundingClientRect();
             mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
             mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+            
             raycaster.setFromCamera(mouse, camera);
             const t = document.getElementById('tooltip');
             const hits = raycaster.intersectObjects([...eventGroup.children, ...gridGroup.children, ...spiralGroup.children]);
@@ -214,12 +218,27 @@
                 const d = hits[0].object.userData;
                 document.body.style.cursor = 'pointer';
                 t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
-                if (d.type === 'dayMarker') t.innerHTML = `<b class="text-blue-400">НОВИЙ ДЕНЬ</b><br>${d.label}`;
+                if (d.type === 'dayMarker') t.innerHTML = `<b class="text-blue-400">ПОЧАТОК ДОБИ</b><br>${d.label}`;
                 else if (d.type === 'event') t.innerHTML = `<b class="text-blue-400">ПОДІЯ</b><br>${d.summary}`;
                 else t.innerHTML = `${posToDate(hits[0].point.y).toLocaleTimeString('uk', {hour:'2-digit', minute:'2-digit'})}`;
             } else { t.style.display = 'none'; document.body.style.cursor = 'default'; }
         });
 
+        container.addEventListener('pointerup', (e) => {
+            if (isDragging && Math.abs(e.movementX) > 2) return; 
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObjects([...eventGroup.children, ...gridGroup.children, ...spiralGroup.children]);
+            if (hits.length > 0) {
+                const d = hits[0].object.userData;
+                if (d.type === 'event') window.openModal(events.find(ev => ev.id === d.id));
+                else {
+                    const clickTime = posToDate(hits[0].point.y);
+                    window.openModal({ id: null, summary: "", start: clickTime, end: new Date(clickTime.getTime() + 3600000), color: "#3b82f6", repeat: 'none' });
+                }
+            }
+        });
+
+        // UI ACTIONS
         window.openModal = (ev) => {
             editingId = ev.id;
             document.getElementById('ev-summary').value = ev.summary;
@@ -228,6 +247,7 @@
             const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
             document.getElementById('ev-start').value = toISO(new Date(ev.start));
             document.getElementById('ev-end').value = toISO(new Date(ev.end));
+            document.getElementById('btn-delete').style.display = editingId ? 'block' : 'none';
             const modal = document.getElementById('event-modal');
             modal.style.display = 'flex'; setTimeout(() => modal.style.transform = 'translateX(0)', 10);
         };
@@ -235,7 +255,7 @@
         window.saveEvent = () => {
             const data = {
                 id: editingId || Date.now(),
-                summary: document.getElementById('ev-summary').value || "План",
+                summary: document.getElementById('ev-summary').value || "Без назви",
                 start: new Date(document.getElementById('ev-start').value).getTime(),
                 end: new Date(document.getElementById('ev-end').value).getTime(),
                 repeat: document.getElementById('ev-repeat').value,
@@ -250,8 +270,12 @@
             const modal = document.getElementById('event-modal');
             modal.style.transform = 'translateX(-100%)'; setTimeout(() => modal.style.display = 'none', 500);
         };
-        
+
         window.deleteEvent = () => { events = events.filter(e => e.id !== editingId); renderEvents(); window.closeModal(); };
+
+        // Inputs Binding
+        document.getElementById('in-height-pct').onchange = (e) => { CONFIG.heightPct = parseInt(e.target.value); buildSpiral(); renderEvents(); };
+        document.getElementById('in-days').onchange = (e) => { CONFIG.renderDays = parseInt(e.target.value); buildSpiral(); renderEvents(); };
 
         function buildCalendar() {
             const grid = document.getElementById('calendar-grid'); grid.innerHTML = "";
@@ -275,7 +299,7 @@
             requestAnimationFrame(animate);
             TWEEN.update(time);
             nowMarker.position.copy(dateToPos(new Date()));
-            document.getElementById('live-clock').innerText = new Date().toLocaleString('uk');
+            document.getElementById('live-clock').innerText = new Date().toLocaleString('uk', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
             controls.update(); renderer.render(scene, camera);
         }
 
