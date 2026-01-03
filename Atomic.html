@@ -3,116 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>IPHILINI | Mobile v6.2</title>
+    <title>IPHILINI | Contrast v6.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #0b1121; font-family: 'Inter', sans-serif; color: #e2e8f0; -webkit-tap-highlight-color: transparent; }
-        
-        /* Адаптивний тултіп: на мобільному фіксований зверху, на десктопі плаває */
-        #tooltip-desktop { position: absolute; pointer-events: none; display: none; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); border: 1px solid #334155; color: white; padding: 8px 12px; border-radius: 6px; font-size: 11px; z-index: 1000; }
-        #tooltip-mobile { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 20px; border: 1px solid #3b82f6; display: none; text-align: center; z-index: 900; box-shadow: 0 4px 20px rgba(0,0,0,0.5); width: 90%; max-width: 300px; }
-
-        /* Стилі для інпутів */
-        .glass-panel { background: #0f172a; border-right: 1px solid #1e293b; }
-        .num-input { background: #1e293b; border: 1px solid #334155; color: white; border-radius: 4px; padding: 4px; text-align: center; }
-        input, select { background: #1e293b; color: white; border: 1px solid #334155; outline: none; }
-        
-        /* Bottom Sheet transition for Mobile */
-        .mobile-drawer { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        body { margin: 0; overflow: hidden; background: #020617; font-family: 'Inter', sans-serif; color: #f1f5f9; -webkit-tap-highlight-color: transparent; }
+        .glass-panel { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border-right: 1px solid #1e293b; }
+        #tooltip-desktop { position: absolute; pointer-events: none; display: none; background: #1e293b; border: 1px solid #3b82f6; color: white; padding: 10px; border-radius: 8px; font-size: 12px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #tooltip-mobile { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; padding: 12px 24px; border-radius: 30px; border: 2px solid #3b82f6; display: none; text-align: center; z-index: 900; width: 85%; }
+        .mobile-drawer { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         .drawer-open { transform: translateY(0) !important; }
-        
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        .btn-primary { background: #2563eb; color: white; font-weight: 800; border-radius: 12px; transition: all 0.2s; }
+        .btn-primary:hover { background: #3b82f6; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
+        input, select { background: #0f172a; color: white; border: 1px solid #334155; border-radius: 8px; padding: 8px; }
     </style>
 </head>
 <body class="flex flex-col md:flex-row h-screen w-screen">
 
-    <div class="fixed top-0 left-0 right-0 p-4 flex justify-between items-start z-50 pointer-events-none md:hidden">
-        <div class="pointer-events-auto bg-slate-900/80 backdrop-blur p-2 rounded-lg border border-slate-700">
-            <h1 class="text-xs font-black italic tracking-tighter text-white">IPHILINI</h1>
-            <div id="live-clock-mobile" class="text-[10px] font-mono text-blue-400 font-bold">--:--</div>
+    <div id="tooltip-desktop" class="hidden md:block"></div>
+    <div id="tooltip-mobile" class="md:hidden">
+        <div id="tm-time" class="text-xl font-black text-white">--:--</div>
+        <div id="tm-date" class="text-[10px] text-blue-400 uppercase font-bold tracking-widest">Вибрати цей час</div>
+    </div>
+
+    <div class="fixed top-0 left-0 right-0 p-4 flex justify-between items-center z-50 md:hidden pointer-events-none">
+        <div class="pointer-events-auto bg-slate-900/90 p-2 px-4 rounded-full border border-blue-500/30">
+            <span class="text-[10px] font-black tracking-widest text-blue-400 uppercase">Iphilini Now</span>
+            <div id="live-clock-mobile" class="text-sm font-mono font-bold text-white">--:--:--</div>
         </div>
-        <button onclick="toggleDrawer()" class="pointer-events-auto bg-blue-600 text-white p-3 rounded-full shadow-lg active:scale-95 transition-transform">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        <button onclick="toggleDrawer()" class="pointer-events-auto bg-blue-600 p-3 rounded-full shadow-lg">
+            <svg width="24" height="24" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
         </button>
     </div>
 
-    <div id="tooltip-desktop" class="hidden md:block"></div>
-    <div id="tooltip-mobile" class="md:hidden">
-        <div id="tm-time" class="text-xl font-mono font-bold text-white">12:00</div>
-        <div id="tm-date" class="text-xs text-slate-400 uppercase font-bold">Дата</div>
-        <div id="tm-status" class="text-[10px] mt-1 text-blue-400 hidden">ПОДІЯ</div>
-    </div>
-
-    <aside id="main-sidebar" class="mobile-drawer fixed inset-x-0 bottom-0 h-[60vh] transform translate-y-full md:translate-y-0 md:relative md:h-screen md:w-80 glass-panel z-40 flex flex-col shadow-2xl rounded-t-2xl md:rounded-none">
+    <aside id="main-sidebar" class="mobile-drawer fixed inset-x-0 bottom-0 h-[70vh] md:relative md:h-screen md:w-80 md:translate-y-0 transform translate-y-full glass-panel z-40 flex flex-col shadow-2xl rounded-t-[32px] md:rounded-none">
         
-        <div class="w-full flex justify-center p-2 md:hidden" onclick="toggleDrawer()">
-            <div class="w-12 h-1.5 bg-slate-700 rounded-full"></div>
+        <div class="w-full flex justify-center p-3 md:hidden" onclick="toggleDrawer()">
+            <div class="w-16 h-1.5 bg-slate-700 rounded-full"></div>
         </div>
 
-        <div class="p-5 border-b border-slate-800 hidden md:block">
-            <h1 class="text-lg font-black italic tracking-tighter uppercase text-white">IPHILINI <span class="text-blue-500 text-[10px]">V6.2</span></h1>
-            <div id="live-clock-desktop" class="text-[10px] font-mono text-blue-400 font-bold mt-2"></div>
+        <div class="p-6 border-b border-slate-800 hidden md:block">
+            <h1 class="text-xl font-black italic tracking-tighter text-white uppercase">IPHILINI <span class="text-blue-500 text-xs">6.3</span></h1>
+            <div id="live-clock-desktop" class="text-xs font-mono text-blue-400 font-bold mt-2 tracking-widest"></div>
         </div>
 
-        <div class="px-5 py-4 space-y-3 bg-slate-900/50">
-            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase">
-                <span>Масштаб</span>
-                <input id="in-height-pct" type="number" value="180" class="num-input w-16">
+        <div class="p-4 space-y-4">
+            <button onclick="window.openModal({start: new Date(), end: new Date(Date.now()+3600000)})" class="w-full btn-primary py-4 text-sm uppercase tracking-widest flex items-center justify-center gap-2">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
+                Створити подію
+            </button>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase mb-1">Висота витка</span>
+                    <input id="in-height-pct" type="number" value="220" class="text-xs font-bold p-2">
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase mb-1">К-сть днів</span>
+                    <input id="in-days" type="number" value="30" class="text-xs font-bold p-2">
+                </div>
             </div>
-            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase">
-                <span>Днів</span>
-                <input id="in-days" type="number" value="30" class="num-input w-16">
-            </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-4 pb-20 md:pb-4 border-t border-slate-800 bg-slate-900/30">
-             <h3 class="text-[9px] font-bold text-slate-600 uppercase tracking-widest my-4 text-center">Список подій</h3>
-            <div id="sidebar-event-list" class="space-y-2 pb-10"></div>
+        <div class="flex-1 overflow-y-auto px-4 bg-slate-900/20">
+            <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] my-4 text-center">Розклад</h3>
+            <div id="sidebar-event-list" class="space-y-2 pb-24 md:pb-6"></div>
         </div>
     </aside>
 
-    <div id="event-modal" class="fixed inset-0 md:left-80 md:w-96 bg-slate-950/95 backdrop-blur-xl z-[2000] transform translate-y-full md:translate-y-0 md:-translate-x-full transition-transform duration-300 hidden flex-col p-6 md:border-r border-slate-800">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-sm font-black uppercase text-blue-500 tracking-widest">Деталі події</h2>
-            <button onclick="window.closeModal()" class="text-slate-400 p-2 md:hidden">✕</button>
-        </div>
-        
+    <div id="event-modal" class="fixed inset-0 md:left-80 md:w-96 bg-slate-950/98 z-[2000] transform translate-y-full md:translate-y-0 md:-translate-x-full transition-transform duration-300 hidden flex-col p-8 border-r border-slate-800">
+        <h2 class="text-xl font-black uppercase text-blue-500 mb-8 italic">Редагувати час</h2>
         <div class="space-y-6 flex-1 overflow-y-auto">
-            <input id="ev-summary" type="text" placeholder="Назва події" class="w-full p-4 rounded-xl bg-slate-900 text-lg font-bold focus:ring-2 ring-blue-600 transition-all" />
-            
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-slate-500 uppercase">Початок</label>
-                    <input id="ev-start" type="datetime-local" class="w-full p-3 rounded-xl bg-slate-900 text-xs font-mono" />
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold text-slate-500 uppercase">Кінець</label>
-                    <input id="ev-end" type="datetime-local" class="w-full p-3 rounded-xl bg-slate-900 text-xs font-mono" />
-                </div>
-            </div>
-
             <div class="space-y-1">
-                <label class="text-[9px] font-bold text-slate-500 uppercase">Колір маркера</label>
-                <div class="flex gap-2 h-12">
-                    <input id="ev-color" type="color" value="#3b82f6" class="flex-1 h-full rounded-xl cursor-pointer bg-slate-900 p-1 border border-slate-700" />
+                <label class="text-[10px] font-bold text-slate-500 uppercase">Назва</label>
+                <input id="ev-summary" type="text" placeholder="Що плануєте?" class="w-full p-4 text-lg font-bold">
+            </div>
+            <div class="grid grid-cols-1 gap-4">
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase text-blue-400">Початок</label>
+                    <input id="ev-start" type="datetime-local" class="w-full p-3 font-mono">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase text-red-400">Кінець</label>
+                    <input id="ev-end" type="datetime-local" class="w-full p-3 font-mono">
                 </div>
             </div>
-            
-            <select id="ev-repeat" class="w-full p-4 rounded-xl bg-slate-900 text-sm font-bold border border-slate-700">
-                <option value="none">Не повторювати</option>
-                <option value="daily">Щодня</option>
-            </select>
+            <div class="flex gap-4 items-end">
+                <div class="flex-1 space-y-1">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Колір</label>
+                    <input id="ev-color" type="color" value="#3b82f6" class="w-full h-12 p-1">
+                </div>
+                <div class="flex-1 space-y-1">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Повтор</label>
+                    <select id="ev-repeat" class="w-full h-12 font-bold text-xs">
+                        <option value="none">Ні</option>
+                        <option value="daily">Щодня</option>
+                    </select>
+                </div>
+            </div>
         </div>
-
-        <div class="pt-6 space-y-3 pb-safe"> <button onclick="window.saveEvent()" class="w-full py-4 bg-blue-600 active:bg-blue-700 text-white rounded-xl font-bold uppercase text-xs shadow-lg shadow-blue-900/50">Зберегти</button>
-            <div class="flex gap-3">
-                <button onclick="window.deleteEvent()" id="btn-delete" class="flex-1 py-3 bg-red-500/10 text-red-500 rounded-xl font-bold uppercase text-[10px]">Видалити</button>
-                <button onclick="window.closeModal()" class="flex-1 py-3 bg-slate-800 text-slate-400 rounded-xl font-bold uppercase text-[10px]">Скасувати</button>
+        <div class="pt-8 space-y-3">
+            <button onclick="window.saveEvent()" class="w-full py-4 btn-primary uppercase text-sm">Зберегти зміни</button>
+            <div class="flex gap-2">
+                <button onclick="window.deleteEvent()" id="btn-delete" class="flex-1 py-3 text-red-500 font-bold uppercase text-[10px] border border-red-500/20 rounded-xl">Видалити</button>
+                <button onclick="window.closeModal()" class="flex-1 py-3 text-slate-500 font-bold uppercase text-[10px]">Закрити</button>
             </div>
         </div>
     </div>
@@ -122,88 +117,93 @@
     <script>
         const IS_MOBILE = window.innerWidth < 768;
         const CONFIG = { 
-            radius: IS_MOBILE ? 6 : 8, // Менший радіус для мобільного
-            heightPct: 180, 
+            radius: IS_MOBILE ? 7 : 9, 
+            heightPct: 220, 
             renderDays: 30, 
             baseDate: new Date().setHours(0,0,0,0)
         };
         const START_ANGLE = -Math.PI / 2;
         
-        let events = JSON.parse(localStorage.getItem('iphilini_v62_data')) || [];
+        let events = JSON.parse(localStorage.getItem('iphilini_v63_data')) || [];
         let editingId = null;
         let minutePoints = null;
+        let spiralLine = null;
 
-        // UI HELPERS
-        function toggleDrawer() {
-            const d = document.getElementById('main-sidebar');
-            d.classList.toggle('drawer-open');
-        }
+        function toggleDrawer() { document.getElementById('main-sidebar').classList.toggle('drawer-open'); }
 
-        // THREE.JS SETUP
-        const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x0b1121, IS_MOBILE ? 0.03 : 0.02); // Густіший туман на мобільному
+        // ТУМАН: Робимо його дуже слабким, щоб спіраль не зникала при віддаленні
+        scene.fog = new THREE.FogExp2(0x020617, 0.008); 
 
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        // Камера далі на мобільному для огляду
-        if(IS_MOBILE) camera.position.set(28, 40, 28);
-        else camera.position.set(22, 25, 22);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(25, 35, 25);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Обмеження для продуктивності
-        container.appendChild(renderer.domElement);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        // Додаємо соковитості кольорам
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 1.5;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.rotateSpeed = 0.5; // Повільніше обертання для точності пальцем
 
-        // TEXTURES & MATERIALS
-        function createDotTexture() {
-            const c = document.createElement('canvas'); c.width = 32; c.height = 32;
+        function createPointTexture() {
+            const c = document.createElement('canvas'); c.width = 64; c.height = 64;
             const ctx = c.getContext('2d');
-            const g = ctx.createRadialGradient(16,16,4,16,16,16);
-            g.addColorStop(0, 'white'); g.addColorStop(1, 'transparent');
-            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(16,16,16,0,Math.PI*2); ctx.fill();
+            const g = ctx.createRadialGradient(32,32,0,32,32,32);
+            g.addColorStop(0, 'white');
+            g.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+            g.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
             return new THREE.CanvasTexture(c);
         }
-        const dotTexture = createDotTexture();
+        const pointTex = createPointTexture();
 
         const nowMarker = new THREE.Mesh(
-            new THREE.SphereGeometry(IS_MOBILE ? 0.5 : 0.3, 16, 16),
-            new THREE.MeshBasicMaterial({ color: 0x60a5fa })
+            new THREE.SphereGeometry(0.5, 24, 24),
+            new THREE.MeshBasicMaterial({ color: 0x00ffff, toneMapped: false })
         );
         scene.add(nowMarker);
 
-        // LOGIC
-        function getCoords(minIdx) {
-            const hrs = minIdx / 60;
+        function getCoords(min) {
+            const hrs = min / 60;
             const y = (hrs / 24) * (CONFIG.radius * (CONFIG.heightPct / 100));
-            const angle = (hrs / 24) * Math.PI * 2 + START_ANGLE;
-            return { x: Math.cos(angle)*CONFIG.radius, y: y, z: Math.sin(angle)*CONFIG.radius };
+            const a = (hrs / 24) * Math.PI * 2 + START_ANGLE;
+            return { x: Math.cos(a)*CONFIG.radius, y: y, z: Math.sin(a)*CONFIG.radius };
         }
 
-        function buildCurve() {
-            if(minutePoints) { scene.remove(minutePoints); minutePoints.geometry.dispose(); }
-            
-            const totalMins = CONFIG.renderDays * 24 * 60;
+        function buildSpiral() {
+            if(minutePoints) scene.remove(minutePoints);
+            if(spiralLine) scene.remove(spiralLine);
+
+            const totalMins = CONFIG.renderDays * 1440;
             const geo = new THREE.BufferGeometry();
             const pos = new Float32Array(totalMins * 3);
             const col = new Float32Array(totalMins * 3);
             const size = new Float32Array(totalMins);
+            const linePts = [];
 
             for(let i=0; i<totalMins; i++) {
                 const c = getCoords(i);
                 pos[i*3] = c.x; pos[i*3+1] = c.y; pos[i*3+2] = c.z;
-                
-                // Colors
+                if(i % 10 === 0) linePts.push(new THREE.Vector3(c.x, c.y, c.z));
+
                 const isDay = i % 1440 === 0;
                 const isHour = i % 60 === 0;
-                
-                if(isDay) { col[i*3]=0.9; col[i*3+1]=0.7; col[i*3+2]=0.2; size[i] = IS_MOBILE ? 1.5 : 1.0; }
-                else if(isHour) { col[i*3]=0.4; col[i*3+1]=0.5; col[i*3+2]=0.6; size[i] = IS_MOBILE ? 1.0 : 0.6; }
-                else { col[i*3]=0.15; col[i*3+1]=0.18; col[i*3+2]=0.25; size[i] = IS_MOBILE ? 0.5 : 0.25; }
+
+                if(isDay) {
+                    col[i*3]=0.2; col[i*3+1]=0.6; col[i*3+2]=1.0; // Blue Day Start
+                    size[i] = 2.5;
+                } else if(isHour) {
+                    col[i*3]=0.8; col[i*3+1]=0.8; col[i*3+2]=0.8; 
+                    size[i] = 0.8;
+                } else {
+                    col[i*3]=0.1; col[i*3+1]=0.15; col[i*3+2]=0.25; 
+                    size[i] = 0.3;
+                }
             }
 
             geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -211,104 +211,74 @@
             geo.setAttribute('size', new THREE.BufferAttribute(size, 1));
 
             minutePoints = new THREE.Points(geo, new THREE.PointsMaterial({
-                vertexColors: true, sizeAttenuation: true, map: dotTexture, 
-                transparent: true, opacity: 0.9, size: 0.8, alphaTest: 0.1
+                vertexColors: true, map: pointTex, transparent: true, 
+                opacity: 1, size: 1.2, sizeAttenuation: true, blending: THREE.AdditiveBlending
             }));
             scene.add(minutePoints);
+
+            // Тонка лінія-провідник для контрасту
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(linePts);
+            spiralLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ 
+                color: 0x1e293b, transparent: true, opacity: 0.3 
+            }));
+            scene.add(spiralLine);
+
             applyEvents();
         }
 
         function applyEvents() {
-            if(!minutePoints) return;
-            const col = minutePoints.geometry.attributes.color;
-            
-            // Reset colors loop... (Optimized: just re-run generation or keep cache, here simply reset)
-            for(let i=0; i<col.count; i++) {
-                if(i%1440===0) col.setXYZ(i,0.9,0.7,0.2);
-                else if(i%60===0) col.setXYZ(i,0.4,0.5,0.6);
-                else col.setXYZ(i,0.15,0.18,0.25);
+            const colors = minutePoints.geometry.attributes.color;
+            for(let i=0; i<colors.count; i++) {
+                if(i%1440===0) colors.setXYZ(i,0,0.5,1);
+                else if(i%60===0) colors.setXYZ(i,0.8,0.8,0.8);
+                else colors.setXYZ(i,0.1,0.15,0.25);
             }
 
             events.forEach(ev => {
                 const c = new THREE.Color(ev.color);
                 const s = new Date(ev.start); const e = new Date(ev.end);
-                
                 const paint = (sMs, eMs) => {
-                    let startIdx = Math.floor((sMs - CONFIG.baseDate)/60000);
-                    let endIdx = Math.floor((eMs - CONFIG.baseDate)/60000);
-                    if(startIdx < 0) startIdx = 0;
-                    for(let k=startIdx; k<endIdx; k++) {
-                         if(k < col.count) col.setXYZ(k, c.r, c.g, c.b);
-                    }
+                    let startIdx = Math.max(0, Math.floor((sMs - CONFIG.baseDate)/60000));
+                    let endIdx = Math.min(colors.count, Math.floor((eMs - CONFIG.baseDate)/60000));
+                    for(let k=startIdx; k<endIdx; k++) colors.setXYZ(k, c.r, c.g, c.b);
                 };
-
                 if(ev.repeat === 'daily') {
                     for(let d=0; d<CONFIG.renderDays; d++) paint(s.getTime() + d*864e5, e.getTime() + d*864e5);
-                } else {
-                    paint(s.getTime(), e.getTime());
-                }
+                } else paint(s.getTime(), e.getTime());
             });
-            col.needsUpdate = true;
+            colors.needsUpdate = true;
             updateList();
         }
 
-        // INTERACTION
         const raycaster = new THREE.Raycaster();
-        raycaster.params.Points.threshold = IS_MOBILE ? 0.8 : 0.3; // Більший "магніт" для пальця
+        raycaster.params.Points.threshold = 0.6;
         const mouse = new THREE.Vector2();
-        let selectedTime = null;
 
-        function handlePointer(x, y, isClick) {
-            mouse.x = (x / window.innerWidth) * 2 - 1;
-            mouse.y = -(y / window.innerHeight) * 2 + 1;
+        function handleInteract(clientX, clientY, isClick) {
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
-            
             const hits = raycaster.intersectObject(minutePoints);
+            
             if(hits.length > 0) {
                 const idx = hits[0].index;
                 const time = new Date(CONFIG.baseDate + idx * 60000);
-                selectedTime = time;
-
-                // Detect event color
-                const r = minutePoints.geometry.attributes.color.getX(idx);
-                const isEvent = r > 0.4 && idx % 60 !== 0;
-
-                // SHOW INFO
+                
                 if(IS_MOBILE) {
-                    const tm = document.getElementById('tooltip-mobile');
-                    tm.style.display = 'block';
+                    const m = document.getElementById('tooltip-mobile'); m.style.display = 'block';
                     document.getElementById('tm-time').innerText = time.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'});
-                    document.getElementById('tm-date').innerText = time.toLocaleDateString('uk',{day:'numeric', month:'long'});
-                    document.getElementById('tm-status').style.display = isEvent ? 'block' : 'none';
-                    if(isClick) openModal({start: time, end: new Date(time.getTime()+3600000), color: '#3b82f6'});
                 } else {
-                    const td = document.getElementById('tooltip-desktop');
-                    td.style.display = 'block';
-                    td.style.left = x + 10 + 'px'; td.style.top = y + 'px';
-                    td.innerHTML = `<b class="font-mono text-lg">${time.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</b><br><span class="text-slate-400 text-[10px]">${time.toLocaleDateString('uk')}</span>`;
-                    document.body.style.cursor = 'pointer';
-                    if(isClick) openModal({start: time, end: new Date(time.getTime()+3600000), color: '#3b82f6'});
+                    const d = document.getElementById('tooltip-desktop'); d.style.display = 'block';
+                    d.style.left = clientX + 15 + 'px'; d.style.top = clientY + 'px';
+                    d.innerHTML = `<b>${time.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</b>`;
                 }
-            } else {
-                if(!IS_MOBILE) {
-                    document.getElementById('tooltip-desktop').style.display = 'none';
-                    document.body.style.cursor = 'default';
-                }
-                // На мобільному не ховаємо відразу, щоб юзер встиг прочитати
+                if(isClick) window.openModal({start: time, end: new Date(time.getTime()+3600000)});
             }
         }
 
-        container.addEventListener('pointermove', (e) => {
-            // На мобільному move ігноруємо для економії, тільки на десктопі
-            if(!IS_MOBILE) handlePointer(e.clientX, e.clientY, false);
-        });
+        window.addEventListener('mousemove', e => !IS_MOBILE && handleInteract(e.clientX, e.clientY, false));
+        container.addEventListener('click', e => handleInteract(e.clientX, e.clientY, true));
 
-        // Для мобільного використовуємо Touchend для імітації кліку
-        container.addEventListener('click', (e) => {
-             handlePointer(e.clientX, e.clientY, true);
-        });
-        
-        // MODAL LOGIC
         window.openModal = (ev) => {
             editingId = ev.id || null;
             const toISO = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
@@ -318,68 +288,59 @@
             document.getElementById('ev-color').value = ev.color || '#3b82f6';
             document.getElementById('ev-repeat').value = ev.repeat || 'none';
             document.getElementById('btn-delete').style.display = editingId ? 'block' : 'none';
-
             const modal = document.getElementById('event-modal');
             modal.style.display = 'flex';
-            
-            if(IS_MOBILE) {
-                // Mobile slide up
-                modal.classList.remove('translate-y-full');
-            } else {
-                // Desktop slide in
-                setTimeout(() => modal.classList.remove('-translate-x-full'), 10);
-            }
+            setTimeout(() => modal.classList.remove('translate-y-full', '-translate-x-full'), 10);
         };
 
         window.closeModal = () => {
-            const modal = document.getElementById('event-modal');
-            if(IS_MOBILE) modal.classList.add('translate-y-full');
-            else modal.classList.add('-translate-x-full');
-            setTimeout(() => modal.style.display = 'none', 300);
+            const m = document.getElementById('event-modal');
+            if(IS_MOBILE) m.classList.add('translate-y-full'); else m.classList.add('-translate-x-full');
+            setTimeout(() => m.style.display = 'none', 300);
         };
 
         window.saveEvent = () => {
             const data = {
                 id: editingId || Date.now(),
-                summary: document.getElementById('ev-summary').value || "Подія",
+                summary: document.getElementById('ev-summary').value || "План",
                 start: new Date(document.getElementById('ev-start').value).getTime(),
                 end: new Date(document.getElementById('ev-end').value).getTime(),
                 repeat: document.getElementById('ev-repeat').value,
                 color: document.getElementById('ev-color').value
             };
-            if(editingId) events = events.map(e => e.id === editingId ? data : e);
-            else events.push(data);
-            localStorage.setItem('iphilini_v62_data', JSON.stringify(events));
+            if(editingId) events = events.map(e => e.id === editingId ? data : e); else events.push(data);
+            localStorage.setItem('iphilini_v63_data', JSON.stringify(events));
             applyEvents(); closeModal();
         };
 
         window.deleteEvent = () => {
             events = events.filter(e => e.id !== editingId);
-            localStorage.setItem('iphilini_v62_data', JSON.stringify(events));
+            localStorage.setItem('iphilini_v63_data', JSON.stringify(events));
             applyEvents(); closeModal();
         };
 
         function updateList() {
-            const l = document.getElementById('sidebar-event-list'); l.innerHTML = '';
-            events.forEach(ev => {
-                const el = document.createElement('div');
-                el.className = 'p-3 bg-slate-800 rounded-lg border-l-4 text-xs flex justify-between items-center text-slate-300';
-                el.style.borderLeftColor = ev.color;
-                el.innerHTML = `<div><div class="font-bold text-white">${ev.summary}</div><span class="opacity-70">${new Date(ev.start).toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
-                el.onclick = () => window.openModal(ev);
-                l.appendChild(el);
+            const list = document.getElementById('sidebar-event-list');
+            list.innerHTML = '';
+            events.sort((a,b)=>a.start-b.start).forEach(ev => {
+                const d = new Date(ev.start);
+                const item = document.createElement('div');
+                item.className = 'p-4 bg-slate-800/50 rounded-2xl border-l-4 mb-2 cursor-pointer';
+                item.style.borderLeftColor = ev.color;
+                item.innerHTML = `<div class="text-[10px] text-slate-500 font-bold uppercase mb-1">${d.toLocaleDateString('uk',{day:'numeric', month:'short'})}</div><div class="font-bold text-white">${ev.summary}</div><div class="text-xs text-blue-400 font-mono">${d.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</div>`;
+                item.onclick = () => window.openModal(ev);
+                list.appendChild(item);
             });
         }
 
-        // LOOP
         function animate() {
             requestAnimationFrame(animate);
             const now = new Date();
-            const minIdx = (now - CONFIG.baseDate)/60000;
-            const p = getCoords(minIdx);
+            const p = getCoords((now - CONFIG.baseDate)/60000);
             nowMarker.position.set(p.x, p.y, p.z);
+            nowMarker.scale.setScalar(1 + Math.sin(Date.now()*0.005)*0.2);
             
-            const timeStr = now.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'});
+            const timeStr = now.toLocaleTimeString('uk');
             if(IS_MOBILE) document.getElementById('live-clock-mobile').innerText = timeStr;
             else document.getElementById('live-clock-desktop').innerText = timeStr;
             
@@ -387,20 +348,16 @@
             renderer.render(scene, camera);
         }
 
-        // RESIZE
+        document.getElementById('in-height-pct').onchange = (e) => { CONFIG.heightPct = e.target.value; buildSpiral(); };
+        document.getElementById('in-days').onchange = (e) => { CONFIG.renderDays = e.target.value; buildSpiral(); };
+
         window.addEventListener('resize', () => {
-            const isMob = window.innerWidth < 768;
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            if(isMob) camera.position.set(28, 40, 28); // Update pos on orientation change
         });
 
-        // INPUTS
-        document.getElementById('in-height-pct').onchange = (e) => { CONFIG.heightPct = parseInt(e.target.value); buildCurve(); };
-        document.getElementById('in-days').onchange = (e) => { CONFIG.renderDays = parseInt(e.target.value); buildCurve(); };
-
-        buildCurve(); animate();
+        buildSpiral(); animate();
     </script>
 </body>
 </html>
