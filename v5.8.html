@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLIP | Master v5.8</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020617; font-family: 'Inter', sans-serif; color: #f8fafc; }
+        .side-panel { background: #ffffff; border-right: 1px solid #e2e8f0; z-index: 50; color: #0f172a; }
+        #tooltip { position: absolute; pointer-events: none; display: none; background: #1e293b; color: white; padding: 10px; border-radius: 8px; font-size: 11px; z-index: 1000; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .num-input { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 4px; font-weight: 800; width: 55px; text-align: center; }
+    </style>
+</head>
+<body class="flex">
+
+    <div id="tooltip"></div>
+
+    <aside class="side-panel w-72 h-screen flex flex-col shadow-2xl">
+        <div class="p-6">
+            <h1 class="text-xl font-black italic tracking-tighter uppercase">IPHILINI<br><span class="text-blue-600 text-[9px] not-italic tracking-[0.3em]">MASTER 5.8</span></h1>
+            <p id="live-clock" class="text-[11px] font-mono text-slate-500 font-bold mt-4 p-2 bg-slate-100 rounded-lg text-center uppercase"></p>
+        </div>
+
+        <div class="px-6 space-y-3 mb-6">
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <span>Масштаб %</span>
+                <input id="in-height-pct" type="number" value="180" class="num-input">
+            </div>
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <span>Днів</span>
+                <input id="in-days" type="number" value="30" class="num-input">
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-6 pb-10 border-t pt-4">
+            <div id="sidebar-event-list" class="space-y-2"></div>
+        </div>
+    </aside>
+
+    <div id="event-modal" class="fixed inset-y-0 left-72 w-80 bg-white z-[2000] shadow-2xl transform -translate-x-full transition-transform duration-300 hidden flex-col p-8 border-r text-slate-900">
+        <h2 class="text-lg font-black uppercase italic mb-8">Подія</h2>
+        <div class="space-y-5 flex-1">
+            <input id="ev-summary" type="text" placeholder="Назва" class="w-full p-4 bg-slate-50 rounded-xl font-bold border-none outline-none" />
+            <input id="ev-start" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold" />
+            <input id="ev-end" type="datetime-local" class="w-full p-3 bg-slate-50 rounded-xl font-bold" />
+            <select id="ev-repeat" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm">
+                <option value="none">Без повторів</option>
+                <option value="daily">Щодня</option>
+            </select>
+            <input id="ev-color" type="color" value="#3b82f6" class="w-full h-10 rounded-lg cursor-pointer bg-transparent border-none" />
+        </div>
+        <div class="pt-8 space-y-2">
+            <button onclick="window.saveEvent()" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg">Зберегти</button>
+            <button onclick="window.deleteEvent()" id="btn-delete" class="w-full py-2 text-red-500 font-bold uppercase text-[9px]">Видалити</button>
+            <button onclick="window.closeModal()" class="w-full py-2 text-slate-400 font-bold uppercase text-[9px]">Скасувати</button>
+        </div>
+    </div>
+
+    <main id="canvas-container" class="flex-1 relative bg-slate-950"></main>
+
+    <script>
+        const START_ANGLE = -Math.PI / 2; 
+        let CONFIG = { radius: 8, heightPct: 180, renderDays: 30, baseDate: new Date().setHours(0,0,0,0) };
+        let events = JSON.parse(localStorage.getItem('iphilini_v58_data')) || [];
+        let editingId = null;
+
+        const getDayHeight = () => (CONFIG.radius * (CONFIG.heightPct / 100));
+
+        const scene = new THREE.Scene();
+        const container = document.getElementById('canvas-container');
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(22, 22, 22);
+        controls.enableDamping = true;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const light = new THREE.PointLight(0xffffff, 1.5);
+        light.position.set(15, 30, 15);
+        scene.add(light);
+        
+        const spiralGroup = new THREE.Group();
+        const gridGroup = new THREE.Group();
+        const eventGroup = new THREE.Group();
+        scene.add(spiralGroup, gridGroup, eventGroup);
+
+        const nowMarker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.35, 32, 32),
+            new THREE.MeshStandardMaterial({ color: 0x60a5fa, emissive: 0x3b82f6, emissiveIntensity: 2 })
+        );
+        scene.add(nowMarker);
+
+        // --- CALIBRATED MATH ---
+        function dateToPos(date) {
+            const ms = date.getTime() - CONFIG.baseDate;
+            const hrs = ms / 3600000;
+            const angle = (hrs / 24) * Math.PI * 2 + START_ANGLE;
+            const y = (hrs / 24) * getDayHeight();
+            return new THREE.Vector3(Math.cos(angle) * CONFIG.radius, y, Math.sin(angle) * CONFIG.radius);
+        }
+
+        function posToDate(y) {
+            const hrs = (y / getDayHeight()) * 24;
+            return new Date(CONFIG.baseDate + hrs * 3600000);
+        }
+
+        function buildSpiral() {
+            spiralGroup.clear(); gridGroup.clear();
+            const totalHrs = 24 * CONFIG.renderDays;
+            const pts = [];
+            for (let h = 0; h < totalHrs; h += 0.1) pts.push(dateToPos(new Date(CONFIG.baseDate + h * 3600000)));
+            
+            spiralGroup.add(new THREE.Mesh(
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 200 * CONFIG.renderDays, 0.05, 8, false),
+                new THREE.MeshStandardMaterial({ color: 0x334155 })
+            ));
+
+            const sensor = new THREE.Mesh(
+                new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 100 * CONFIG.renderDays, 0.6, 8, false),
+                new THREE.MeshBasicMaterial({ visible: false })
+            );
+            sensor.userData = { type: 'wire' };
+            spiralGroup.add(sensor);
+
+            for (let h = 0; h <= totalHrs; h++) {
+                const date = new Date(CONFIG.baseDate + h * 3600000);
+                const pos = dateToPos(date);
+                if (h % 24 === 0) {
+                    const m = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.35, 16, 16), 
+                        new THREE.MeshStandardMaterial({ color: date.getDay() === 1 ? 0xf59e0b : 0x3b82f6, emissiveIntensity: 0.5 })
+                    );
+                    m.position.copy(pos); 
+                    m.userData = { type: 'day', label: date.toLocaleDateString('uk', {day:'numeric', month:'short'}) };
+                    gridGroup.add(m);
+                } else {
+                    const t = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+                    t.position.copy(pos); 
+                    t.userData = { type: 'hour', timeStr: date.toLocaleTimeString('uk', {hour:'2-digit', minute:'2-digit'}) };
+                    gridGroup.add(t);
+                }
+            }
+        }
+
+        function renderEvents() {
+            eventGroup.clear();
+            const listEl = document.getElementById('sidebar-event-list');
+            listEl.innerHTML = "";
+
+            events.forEach(ev => {
+                const start = new Date(ev.start);
+                const end = new Date(ev.end);
+                let instances = [{ s: start, e: end }];
+                
+                if (ev.repeat === 'daily') {
+                    for(let i=1; i<CONFIG.renderDays; i++) 
+                        instances.push({ s: new Date(start.getTime() + i*86400000), e: new Date(end.getTime() + i*86400000) });
+                }
+
+                instances.forEach(inst => {
+                    const durHrs = (inst.e - inst.s) / 3600000;
+                    if (durHrs <= 0) return;
+                    const pts = [];
+                    for (let i = 0; i <= durHrs; i += 0.1) pts.push(dateToPos(new Date(inst.s.getTime() + i * 3600000)));
+                    
+                    const m = new THREE.Mesh(
+                        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(2, Math.floor(durHrs * 10)), 0.25, 12, false),
+                        new THREE.MeshStandardMaterial({ color: ev.color, transparent: true, opacity: 0.8 })
+                    );
+                    m.userData = { type: 'event', id: ev.id, summary: ev.summary, time: inst.s.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'}) };
+                    eventGroup.add(m);
+                });
+
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-slate-50 rounded-xl border-l-4 cursor-pointer hover:shadow-md text-[11px] border shadow-sm transition-all';
+                item.style.borderLeftColor = ev.color;
+                item.innerHTML = `<div class="font-black uppercase">${ev.summary}</div><div class="text-slate-400">${start.toLocaleDateString('uk')}</div>`;
+                item.onclick = () => window.openModal(ev);
+                listEl.appendChild(item);
+            });
+            localStorage.setItem('iphilini_v58_data', JSON.stringify(events));
+        }
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hoveredHour = null;
+
+        container.addEventListener('pointermove', (e) => {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            
+            const t = document.getElementById('tooltip');
+            const hE = raycaster.intersectObjects(eventGroup.children);
+            const hG = raycaster.intersectObjects(gridGroup.children);
+            const hS = raycaster.intersectObjects(spiralGroup.children);
+
+            if (hoveredHour) { hoveredHour.material.color.set(0x475569); hoveredHour.scale.set(1,1,1); hoveredHour = null; }
+
+            if (hE.length > 0) {
+                const d = hE[0].object.userData;
+                t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
+                t.innerHTML = `<b class="text-blue-400 uppercase text-[9px]">Подія</b><br><span class="text-sm font-black">${d.summary}</span><br>${d.time}`;
+                document.body.style.cursor = 'pointer';
+            } else if (hG.length > 0) {
+                const d = hG[0].object.userData;
+                t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
+                if (d.type === 'day') t.innerHTML = `<b class="text-amber-500 uppercase">Початок доби</b><br>${d.label}`;
+                else {
+                    t.innerHTML = `<span class="font-bold">${d.timeStr}</span>`;
+                    hoveredHour = hG[0].object;
+                    hoveredHour.material.color.set(0xffffff);
+                    hoveredHour.scale.set(1.5,1.5,1.5);
+                }
+                document.body.style.cursor = 'pointer';
+            } else if (hS.length > 0) {
+                const date = posToDate(hS[0].point.y);
+                t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 'px';
+                t.innerHTML = `<span class="font-mono font-black">${date.toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'})}</span>`;
+                document.body.style.cursor = 'crosshair';
+            } else {
+                t.style.display = 'none'; document.body.style.cursor = 'default';
+            }
+        });
+
+        container.addEventListener('pointerup', (e) => {
+            raycaster.setFromCamera(mouse, camera);
+            const hE = raycaster.intersectObjects(eventGroup.children);
+            const hS = raycaster.intersectObjects(spiralGroup.children);
+            if (hE.length > 0) {
+                const ev = events.find(i => i.id === hE[0].object.userData.id);
+                if (ev) window.openModal(ev);
+            } else if (hS.length > 0) {
+                const time = posToDate(hS[0].point.y);
+                window.openModal({ id: null, summary: "", start: time, end: new Date(time.getTime() + 3600000), color: "#3b82f6", repeat: 'none' });
+            }
+        });
+
+        window.openModal = (ev) => {
+            editingId = ev.id;
+            document.getElementById('ev-summary').value = ev.summary;
+            document.getElementById('ev-repeat').value = ev.repeat || 'none';
+            document.getElementById('ev-color').value = ev.color;
+            const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+            document.getElementById('ev-start').value = toISO(new Date(ev.start));
+            document.getElementById('ev-end').value = toISO(new Date(ev.end));
+            document.getElementById('btn-delete').style.display = editingId ? 'block' : 'none';
+            const modal = document.getElementById('event-modal');
+            modal.style.display = 'flex'; setTimeout(() => modal.style.transform = 'translateX(0)', 10);
+        };
+
+        window.saveEvent = () => {
+            const data = {
+                id: editingId || Date.now(),
+                summary: document.getElementById('ev-summary').value || "План",
+                start: new Date(document.getElementById('ev-start').value).getTime(),
+                end: new Date(document.getElementById('ev-end').value).getTime(),
+                repeat: document.getElementById('ev-repeat').value,
+                color: document.getElementById('ev-color').value
+            };
+            if(editingId) events = events.map(e => e.id === editingId ? data : e);
+            else events.push(data);
+            renderEvents(); window.closeModal();
+        };
+
+        window.closeModal = () => {
+            const modal = document.getElementById('event-modal');
+            modal.style.transform = 'translateX(-100%)'; setTimeout(() => modal.style.display = 'none', 300);
+        };
+
+        window.deleteEvent = () => { events = events.filter(e => e.id !== editingId); renderEvents(); window.closeModal(); };
+
+        document.getElementById('in-height-pct').onchange = (e) => { CONFIG.heightPct = parseInt(e.target.value); buildSpiral(); renderEvents(); };
+        document.getElementById('in-days').onchange = (e) => { CONFIG.renderDays = parseInt(e.target.value); buildSpiral(); renderEvents(); };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            TWEEN.update();
+            const now = new Date();
+            nowMarker.position.copy(dateToPos(now));
+            document.getElementById('live-clock').innerText = now.toLocaleString('uk', { hour: '2-digit', minute: '2-digit', second: '2-digit', day:'numeric', month:'short' });
+            controls.update(); renderer.render(scene, camera);
+        }
+
+        buildSpiral(); renderEvents(); animate();
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+</body>
+</html>
