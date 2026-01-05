@@ -3,123 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLIP! v8.0 Data Master</title>
+    <title>FLIP! v8.1.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; font-family: 'Outfit', sans-serif; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #ui-layer { position: relative; z-index: 10; width: 100%; height: 100%; pointer-events: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f8fafc; font-family: 'Outfit', sans-serif; display: flex; flex-direction: column; }
+        
+        #ui-layer { flex: 0 0 auto; z-index: 10; padding: 10px; }
+        #canvas-container { flex: 1 1 auto; position: relative; background: white; border-top: 1px solid #e2e8f0; }
+
         .interactive { pointer-events: auto; }
-        .flip-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(15px); border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.08); }
-        input, select { background: #f1f5f9; border-radius: 8px; padding: 6px; border: 1px solid #e2e8f0; font-size: 11px; font-weight: 600; width: 100%; }
-        .day-btn { width: 30px; height: 30px; border-radius: 8px; font-size: 10px; font-weight: bold; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .flip-card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        
+        .btn-circle { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; background: #f1f5f9; color: #64748b; font-weight: bold; }
+        .btn-circle:hover { background: #e2e8f0; color: #1e293b; }
+        
+        .day-btn { width: 24px; height: 24px; border-radius: 6px; font-size: 9px; font-weight: bold; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .day-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
-        .btn-data { padding: 6px 12px; border-radius: 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.2s; }
+        
+        details summary { list-style: none; cursor: pointer; outline: none; }
+        details summary::-webkit-details-marker { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="canvas-container"></div>
-
-    <div id="ui-layer" class="p-3">
-        <div class="flip-card p-4 w-full md:w-[340px] interactive space-y-3">
-            <div class="flex justify-between items-center">
-                <h1 class="text-xl font-900 text-slate-900">FLIP<span class="text-blue-600">!</span></h1>
-                <div id="live-clock" class="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full tabular-nums">00:00</div>
+    <div id="ui-layer">
+        <div class="flip-card p-3 w-full max-w-[340px] space-y-3 mx-auto">
+            <div class="flex justify-between items-center border-b pb-2">
+                <div class="flex items-baseline gap-2">
+                    <h1 class="text-base font-900 text-slate-900 leading-none">FLIP<span class="text-blue-600">!</span></h1>
+                    <span id="live-date" class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="focusToday()" class="text-[14px] text-slate-400 hover:text-blue-600 transition-colors" title="До сьогодні">◎</button>
+                    <div id="live-clock" class="text-[10px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md tabular-nums">00:00</div>
+                </div>
             </div>
 
-            <div class="flex gap-2 pb-2 border-b border-slate-100">
-                <button onclick="exportData()" class="btn-data bg-slate-100 text-slate-600 hover:bg-slate-200 flex-1">Експорт ↓</button>
-                <label class="btn-data bg-slate-100 text-slate-600 hover:bg-slate-200 flex-1 text-center cursor-pointer">
-                    Імпорт ↑ <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
+            <div class="flex items-center gap-2">
+                <label class="btn-circle cursor-pointer" title="Імпорт подій">
+                    <span class="text-lg">↓</span>
+                    <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
                 </label>
+                
+                <button onclick="openModal()" class="flex-1 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-blue-200 active:scale-95 transition-all">
+                    + Створити подію
+                </button>
+
+                <button onclick="exportData()" class="btn-circle" title="Експорт (Зберегти файл)">
+                    <span class="text-lg">↑</span>
+                </button>
             </div>
 
-            <button onclick="openModal()" class="w-full py-3 bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest">+ Нова подія</button>
-            
-            <div class="grid grid-cols-2 gap-2 pt-1">
-                <div class="col-span-2">
+            <details class="group">
+                <summary class="flex justify-between items-center text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                    Налаштування рендеру <span class="group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="pt-2 space-y-2">
                     <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-[8px] font-bold text-slate-400 uppercase">Від:</label>
-                            <input id="cfg-from" type="date">
+                        <div class="flex flex-col">
+                            <span class="text-[7px] text-slate-400 mb-0.5">ВІД</span>
+                            <input id="cfg-from" type="date" class="bg-slate-50 border p-1 rounded-md text-[10px]">
                         </div>
-                        <div>
-                            <label class="text-[8px] font-bold text-slate-400 uppercase">До:</label>
-                            <input id="cfg-to" type="date">
+                        <div class="flex flex-col">
+                            <span class="text-[7px] text-slate-400 mb-0.5">ДО</span>
+                            <input id="cfg-to" type="date" class="bg-slate-50 border p-1 rounded-md text-[10px]">
                         </div>
                     </div>
+                    <div class="flex flex-col">
+                        <span class="text-[7px] text-slate-400 mb-0.5">ВИСОТА ВИТКА</span>
+                        <input id="cfg-height" type="range" min="1" max="15" step="0.5" value="6" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer">
+                    </div>
                 </div>
-                <div class="col-span-2">
-                    <label class="text-[8px] font-bold text-slate-400 uppercase">Висота витка (Y)</label>
-                    <input id="cfg-height" type="range" min="1" max="15" step="0.5" value="6" class="mt-1">
-                </div>
-            </div>
+            </details>
 
-            <div class="pt-2 border-t">
-                <button id="toggle-list" class="w-full flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    Мій Розклад <span id="list-arrow">▼</span>
-                </button>
-                <div id="event-list" class="hidden space-y-2 max-h-[180px] overflow-y-auto pr-1"></div>
-            </div>
+            <details class="group border-t pt-2">
+                <summary class="flex justify-between items-center text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                    Мій розклад <span class="group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div id="event-list" class="mt-2 space-y-1.5 max-h-[120px] overflow-y-auto pr-1"></div>
+            </details>
         </div>
     </div>
 
+    <div id="canvas-container"></div>
+
     <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-sm p-6 rounded-[24px] shadow-2xl interactive">
-            <h2 class="text-lg font-bold mb-4">Подія</h2>
-            <div class="space-y-4">
-                <input id="ev-name" type="text" placeholder="Назва">
+        <div class="bg-white w-full max-w-[280px] p-5 rounded-[20px] shadow-2xl interactive">
+            <h2 class="text-sm font-black mb-3 text-slate-800">Подія</h2>
+            <div class="space-y-3">
+                <input id="ev-name" type="text" placeholder="Що плануємо?" class="w-full bg-slate-50 border p-2 rounded-lg text-xs outline-none focus:border-blue-400">
                 <div class="grid grid-cols-2 gap-2">
-                    <input id="ev-start" type="datetime-local">
-                    <input id="ev-end" type="datetime-local">
+                    <input id="ev-start" type="datetime-local" class="bg-slate-50 border p-1.5 rounded-lg text-[10px]">
+                    <input id="ev-end" type="datetime-local" class="bg-slate-50 border p-1.5 rounded-lg text-[10px]">
                 </div>
-                <div class="flex justify-between" id="days-selector">
+                <div class="flex justify-between" id="days-picker">
                     <div class="day-btn" data-day="1">Пн</div><div class="day-btn" data-day="2">Вт</div><div class="day-btn" data-day="3">Ср</div>
                     <div class="day-btn" data-day="4">Чт</div><div class="day-btn" data-day="5">Пт</div><div class="day-btn" data-day="6">Сб</div><div class="day-btn" data-day="0">Нд</div>
                 </div>
                 <div class="flex gap-2">
-                    <input id="ev-color" type="color" value="#2563eb" class="h-10 w-14 border-none p-0 cursor-pointer overflow-hidden rounded-lg">
+                    <input id="ev-color" type="color" value="#2563eb" class="w-10 h-8 border-none p-0 bg-transparent cursor-pointer">
                     <button id="pre-save-btn" class="flex-1 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase">Зберегти</button>
                     <button id="del-btn" class="hidden bg-red-50 text-red-500 px-3 rounded-lg font-bold">✕</button>
                 </div>
-                <button onclick="closeModal()" class="w-full text-slate-400 font-bold text-[9px] uppercase pt-1 text-center">Закрити</button>
+                <button onclick="closeModal()" class="w-full text-[9px] font-bold text-slate-400 uppercase">Скасувати</button>
             </div>
         </div>
     </div>
 
-    <div id="series-modal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-        <div class="bg-white w-full max-w-xs p-6 rounded-[24px] shadow-2xl interactive text-center space-y-4">
-            <h3 class="font-bold">Це частина серії</h3>
-            <button onclick="saveSeries('only')" class="w-full p-3 rounded-xl border font-bold text-xs hover:bg-slate-50">Тільки ця подія</button>
-            <button onclick="saveSeries('all')" class="w-full p-3 rounded-xl border font-bold text-xs bg-blue-600 text-white">Уся серія</button>
-        </div>
-    </div>
-
     <script>
-        // Спроба завантажити дані з будь-якої попередньої версії FLIP
         const STORAGE_KEY = 'flip_calendar_data';
-        let events = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('flip_v79')) || [];
+        let events = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let editingId = null;
-        let tempSaveData = null;
 
-        // Налаштування початкових дат
         const dFrom = new Date();
         const dTo = new Date(); dTo.setDate(dFrom.getDate() + 14);
         document.getElementById('cfg-from').value = dFrom.toISOString().split('T')[0];
         document.getElementById('cfg-to').value = dTo.toISOString().split('T')[0];
 
-        // --- THREE.JS СЦЕНА ---
+        // Three.js Setup
+        const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff);
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(40, 40, 40);
+        const camera = new THREE.PerspectiveCamera(40, container.clientWidth/container.clientHeight, 0.1, 1000);
+        camera.position.set(30, 30, 30);
+        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        container.appendChild(renderer.domElement);
+        
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
@@ -127,7 +141,7 @@
         const eventGroup = new THREE.Group();
         scene.add(mainGroup, eventGroup);
 
-        const nowDisk = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.2, 32), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
+        const nowDisk = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.1, 32), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
         scene.add(nowDisk);
 
         function getPos(timeMs) {
@@ -136,7 +150,13 @@
             const hStep = parseFloat(document.getElementById('cfg-height').value);
             const angle = (hrs / 24) * Math.PI * 2;
             const y = (hrs / 24) * hStep; 
-            return new THREE.Vector3(Math.cos(angle)*12, y, Math.sin(angle)*12);
+            return new THREE.Vector3(Math.cos(angle)*10, y, Math.sin(angle)*10);
+        }
+
+        function focusToday() {
+            const pos = getPos(Date.now());
+            controls.target.copy(pos);
+            camera.position.set(pos.x + 20, pos.y + 20, pos.z + 20);
         }
 
         function buildSpiral() {
@@ -144,36 +164,18 @@
             const from = new Date(document.getElementById('cfg-from').value).getTime();
             const to = new Date(document.getElementById('cfg-to').value).getTime();
             const hrsTotal = (to - from) / 3600000;
-
             const pts = [];
-            for(let h=0; h <= hrsTotal; h += 0.1) pts.push(getPos(from + h*3600000));
-            
-            mainGroup.add(new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints(pts), 
-                new THREE.LineBasicMaterial({color:0x000, opacity:0.1, transparent:true})
-            ));
-            
-            for(let h=0; h <= hrsTotal; h++) {
-                if(h % 24 === 0) {
-                    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({color:0x000, opacity:0.3, transparent:true}));
-                    dot.position.copy(getPos(from + h*3600000));
-                    mainGroup.add(dot);
-                }
-            }
+            for(let h=0; h <= hrsTotal; h += 0.2) pts.push(getPos(from + h*3600000));
+            mainGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0x000, opacity:0.1, transparent:true})));
         }
 
         function update3D() {
             eventGroup.clear();
-            const from = new Date(document.getElementById('cfg-from').value).getTime();
-            const to = new Date(document.getElementById('cfg-to').value).getTime();
-
             events.forEach(ev => {
-                if(ev.start > to || ev.end < from) return;
                 const curvePts = [];
-                const steps = 16;
-                for(let i=0; i<=steps; i++) curvePts.push(getPos(ev.start + (ev.end - ev.start)*(i/steps)));
+                for(let i=0; i<=10; i++) curvePts.push(getPos(ev.start + (ev.end - ev.start)*(i/10)));
                 const tube = new THREE.Mesh(
-                    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 24, 0.6, 8),
+                    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 12, 0.45, 8),
                     new THREE.MeshBasicMaterial({ color: ev.color })
                 );
                 tube.userData = { id: ev.id };
@@ -182,120 +184,39 @@
             renderList();
         }
 
-        // --- ЕКСПОРТ ТА ІМПОРТ ---
-        window.exportData = function() {
-            const dataStr = JSON.stringify(events, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
+        window.exportData = () => {
+            const data = JSON.stringify(events);
+            const blob = new Blob([data], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `flip_backup_${new Date().toISOString().slice(0,10)}.json`;
-            link.click();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `flip_export_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
         };
 
-        window.importData = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        window.importData = (e) => {
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = (ev) => {
                 try {
-                    const imported = JSON.parse(e.target.result);
-                    if(Array.isArray(imported)) {
-                        events = imported;
-                        saveAndRefresh();
-                        alert('Дані успішно імпортовано!');
-                    }
-                } catch(err) { alert('Помилка у файлі!'); }
+                    const imported = JSON.parse(ev.target.result);
+                    if(Array.isArray(imported)) { events = imported; save(); }
+                } catch(err) { alert("Помилка файлу"); }
             };
-            reader.readAsText(file);
+            reader.readAsText(e.target.files[0]);
         };
 
-        function saveAndRefresh() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-            buildSpiral();
-            update3D();
-        }
-
-        // --- ЛОГІКА ПОДІЙ ---
-        function createSeries(data) {
-            const from = new Date(document.getElementById('cfg-from').value).getTime();
-            const to = new Date(document.getElementById('cfg-to').value).getTime();
-            const groupId = data.groupId || Date.now();
-            const duration = data.end - data.start;
-            const res = [];
-            for(let t = from; t <= to; t += 86400000) {
-                if(data.repeat.includes(new Date(t).getDay())) {
-                    const s = new Date(t).setHours(new Date(data.start).getHours(), new Date(data.start).getMinutes());
-                    res.push({ id: Math.random(), groupId, name: data.name, start: s, end: s + duration, color: data.color, repeat: data.repeat });
-                }
-            }
-            return res;
-        }
-
-        document.getElementById('pre-save-btn').onclick = () => {
-            const repeat = Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day));
-            const data = {
-                name: document.getElementById('ev-name').value || 'План',
-                start: new Date(document.getElementById('ev-start').value).getTime(),
-                end: new Date(document.getElementById('ev-end').value).getTime(),
-                color: document.getElementById('ev-color').value,
-                repeat
-            };
-            const existing = events.find(e => e.id === editingId);
-            if(existing && existing.groupId && repeat.length > 0) {
-                tempSaveData = { ...data, groupId: existing.groupId };
-                document.getElementById('series-modal').classList.remove('hidden');
-            } else {
-                if(repeat.length > 0) {
-                    events = events.filter(e => e.id !== editingId);
-                    events.push(...createSeries(data));
-                } else {
-                    const single = { ...data, id: editingId || Date.now(), groupId: null };
-                    if(editingId) events = events.map(e => e.id === editingId ? single : e);
-                    else events.push(single);
-                }
-                saveAndRefresh(); closeModal();
-            }
-        };
-
-        function saveSeries(type) {
-            if(type === 'all') {
-                events = events.filter(e => e.groupId !== tempSaveData.groupId);
-                events.push(...createSeries(tempSaveData));
-            } else {
-                const single = { ...tempSaveData, id: Date.now(), groupId: null, repeat: [] };
-                events = events.map(e => e.id === editingId ? single : e);
-            }
-            saveAndRefresh();
-            closeModal();
-            document.getElementById('series-modal').classList.add('hidden');
-        }
+        function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); buildSpiral(); update3D(); }
 
         function renderList() {
-            const unique = []; const seen = new Set();
-            [...events].sort((a,b) => a.start - b.start).forEach(e => {
-                const key = e.groupId || e.id;
-                if(!seen.has(key)) { unique.push(e); seen.add(key); }
-            });
-
-            document.getElementById('event-list').innerHTML = unique.map(ev => {
-                const s = new Date(ev.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                const e = new Date(ev.end).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                return `
-                <div onclick="openModal(${ev.id})" class="p-3 bg-slate-50 border border-transparent hover:border-blue-600 rounded-xl flex flex-col gap-1 cursor-pointer interactive">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <div class="w-2 h-2 rounded-full" style="background:${ev.color}"></div>
-                            <span class="text-[11px] font-900 text-slate-800 truncate">${ev.name}</span>
-                        </div>
-                        ${ev.repeat.length > 0 ? '<span class="text-blue-600 text-[10px]">↻</span>' : ''}
+            document.getElementById('event-list').innerHTML = events.slice(0, 15).map(ev => `
+                <div onclick="openModal(${ev.id})" class="p-2 bg-slate-50 rounded-lg flex items-center justify-between cursor-pointer border border-transparent hover:border-blue-200">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <div class="w-1 h-3 rounded-full shrink-0" style="background:${ev.color}"></div>
+                        <span class="text-[9px] font-bold text-slate-700 truncate">${ev.name || 'Без назви'}</span>
                     </div>
-                    <div class="flex justify-between text-[9px] text-slate-400 font-bold tabular-nums">
-                        <span>${s} — ${e}</span>
-                        <span>${ev.repeat.length > 0 ? 'СЕРІЯ' : ''}</span>
-                    </div>
+                    <span class="text-[8px] text-slate-400 font-bold tabular-nums shrink-0">${new Date(ev.start).getHours()}:${new Date(ev.start).getMinutes().toString().padStart(2,'0')}</span>
                 </div>
-            `}).join('');
+            `).join('');
         }
 
         function openModal(id = null) {
@@ -306,46 +227,50 @@
             document.getElementById('ev-end').value = new Date(ev.end).toISOString().slice(0,16);
             document.getElementById('ev-color').value = ev.color;
             document.getElementById('del-btn').classList.toggle('hidden', !id);
-            document.querySelectorAll('.day-btn').forEach(btn => btn.classList.toggle('active', ev.repeat.includes(parseInt(btn.dataset.day))));
+            document.querySelectorAll('.day-btn').forEach(btn => btn.classList.toggle('active', (ev.repeat || []).includes(parseInt(btn.dataset.day))));
             document.getElementById('modal').classList.remove('hidden');
         }
 
         function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-        document.getElementById('del-btn').onclick = () => { events = events.filter(e => e.id !== editingId); saveAndRefresh(); closeModal(); };
-        document.querySelectorAll('.day-btn').forEach(btn => btn.onclick = () => btn.classList.toggle('active'));
-        document.getElementById('toggle-list').onclick = () => {
-            const list = document.getElementById('event-list');
-            list.classList.toggle('hidden');
-            document.getElementById('list-arrow').innerText = list.classList.contains('hidden') ? '▼' : '▲';
+
+        document.getElementById('pre-save-btn').onclick = () => {
+            const data = {
+                id: editingId || Date.now(),
+                name: document.getElementById('ev-name').value,
+                start: new Date(document.getElementById('ev-start').value).getTime(),
+                end: new Date(document.getElementById('ev-end').value).getTime(),
+                color: document.getElementById('ev-color').value,
+                repeat: Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day))
+            };
+            events = events.filter(e => e.id !== editingId);
+            events.push(data);
+            save(); closeModal();
         };
 
-        // Raycasting
-        const raycaster = new THREE.Raycaster();
-        function handleInteract(x, y) {
-            const m = new THREE.Vector2((x/window.innerWidth)*2-1, -(y/window.innerHeight)*2+1);
-            raycaster.setFromCamera(m, camera);
-            const hits = raycaster.intersectObjects(eventGroup.children);
-            if(hits.length > 0) openModal(hits[0].object.userData.id);
-        }
-        window.addEventListener('mousedown', (e) => e.target.tagName === 'CANVAS' && handleInteract(e.clientX, e.clientY));
-        window.addEventListener('touchstart', (e) => e.target.tagName === 'CANVAS' && handleInteract(e.touches[0].clientX, e.touches[0].clientY));
+        document.getElementById('del-btn').onclick = () => { events = events.filter(e => e.id !== editingId); save(); closeModal(); };
 
         function animate() {
             requestAnimationFrame(animate);
-            const nowMs = Date.now();
-            const pos = getPos(nowMs);
-            nowDisk.position.copy(pos);
-            nowDisk.lookAt(getPos(nowMs + 100000));
+            const now = new Date();
+            nowDisk.position.copy(getPos(now.getTime()));
+            nowDisk.lookAt(getPos(now.getTime() + 500000));
             nowDisk.rotateX(Math.PI/2);
-            document.getElementById('live-clock').innerText = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            document.getElementById('live-date').innerText = now.toLocaleDateString('uk-UA', {day:'numeric', month:'long'});
             controls.update();
             renderer.render(scene, camera);
         }
 
-        ['cfg-from', 'cfg-to', 'cfg-height'].forEach(id => document.getElementById(id).onchange = () => { buildSpiral(); update3D(); });
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
 
-        buildSpiral(); update3D(); animate();
-        controls.target.copy(getPos(Date.now()));
+        document.querySelectorAll('.day-btn').forEach(btn => btn.onclick = () => btn.classList.toggle('active'));
+        ['cfg-from', 'cfg-to', 'cfg-height'].forEach(id => document.getElementById(id).oninput = () => { buildSpiral(); update3D(); });
+
+        buildSpiral(); update3D(); animate(); focusToday();
     </script>
 </body>
 </html>
