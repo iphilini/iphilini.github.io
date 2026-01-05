@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLIP! v12.1 Aura</title>
+    <title>FLIP! v12.5 Helix Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,60 +11,24 @@
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
         body { margin: 0; background: #000; color: #fff; font-family: 'Space+Grotesk', sans-serif; overflow: hidden; }
         .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .bottom-sheet { transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        .bottom-sheet.active { transform: translateY(0); }
-        input { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; color: white; padding: 14px; outline: none; }
-        .shimmer { background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .shimmer { background: linear-gradient(90deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     </style>
 </head>
 <body>
 
     <div id="canvas-container" class="fixed inset-0"></div>
 
-    <div class="relative z-10 pointer-events-none h-screen flex flex-col justify-between p-5">
+    <div class="relative z-10 pointer-events-none h-screen flex flex-col p-5">
         <header class="flex justify-between items-start pointer-events-auto">
             <div class="glass p-3 rounded-2xl">
-                <h1 class="text-xl font-bold tracking-tighter shimmer">FLIP! <span class="text-[10px] text-white/40 uppercase tracking-widest ml-1">v12.1</span></h1>
-                <p id="clock" class="text-[10px] font-medium opacity-60 mt-0.5"></p>
+                <h1 class="text-xl font-bold tracking-tighter shimmer">FLIP! <span class="text-[10px] text-white/40 ml-1">v12.5</span></h1>
+                <p id="info" class="text-[9px] opacity-50 uppercase mt-1">Helix Synchronization Active</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="core.importClick()" class="glass w-11 h-11 rounded-full flex items-center justify-center text-lg active:scale-90 transition">📅</button>
-                <button onclick="core.focusNow()" class="glass w-11 h-11 rounded-full flex items-center justify-center text-lg active:scale-90 transition">🎯</button>
+                <button onclick="core.importClick()" class="glass w-12 h-12 rounded-2xl flex items-center justify-center text-xl active:scale-90 transition">📥</button>
+                <button onclick="core.focusNow()" class="glass w-12 h-12 rounded-2xl flex items-center justify-center text-xl active:scale-90 transition">🎯</button>
             </div>
         </header>
-
-        <footer class="flex justify-center pb-8">
-            <button onclick="core.openEditor()" class="pointer-events-auto glass px-12 py-4 rounded-full font-bold text-xs tracking-[0.2em] uppercase hover:bg-white/10 active:scale-95 transition-all shadow-2xl">
-                Створити Подію +
-            </button>
-        </footer>
-    </div>
-
-    <div id="editor" class="fixed inset-0 z-50 pointer-events-none flex items-end justify-center">
-        <div class="bottom-sheet pointer-events-auto glass w-full max-w-lg p-6 rounded-t-[3rem] space-y-5 border-t border-white/20">
-            <div class="w-10 h-1 bg-white/20 rounded-full mx-auto" onclick="core.closeEditor()"></div>
-            
-            <input id="ev-title" type="text" placeholder="Назва події..." class="w-full text-lg">
-            
-            <div class="grid grid-cols-2 gap-3 text-left">
-                <div class="flex flex-col gap-1">
-                    <span class="text-[9px] uppercase opacity-40 ml-2">Початок</span>
-                    <input id="ev-start" type="datetime-local" class="text-xs">
-                </div>
-                <div class="flex flex-col gap-1">
-                    <span class="text-[9px] uppercase opacity-40 ml-2">Кінець</span>
-                    <input id="ev-end" type="datetime-local" class="text-xs">
-                </div>
-            </div>
-
-            <div class="flex justify-between items-center py-2">
-                <div class="flex gap-2.5" id="color-dots"></div>
-                <div class="flex gap-2">
-                    <button id="del-btn" onclick="core.deleteEvent()" class="hidden bg-red-500/10 text-red-400 p-4 rounded-2xl">🗑</button>
-                    <button onclick="core.saveEvent()" class="bg-blue-600 px-8 py-4 rounded-2xl font-bold text-sm">Зберегти</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <input type="file" id="file-input" class="hidden" accept=".ics">
@@ -72,38 +36,32 @@
     <script>
         const core = {
             events: [],
-            config: { spiralStep: 8, radius: 12 },
-            editingId: null,
-
+            colors: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b'],
+            
             init() {
                 this.setupThree();
                 this.load();
-                this.renderSpiral();
+                this.renderAll();
                 this.animate();
-                this.updateClock();
-                this.initColors();
-                
-                // Спеціальний обробник для файлу
                 document.getElementById('file-input').addEventListener('change', (e) => this.handleICS(e));
-                window.addEventListener('resize', () => this.onResize());
             },
 
             setupThree() {
                 this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-                this.camera.position.set(30, 40, 30);
-                
+                this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+                this.camera.position.set(40, 60, 40);
                 this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 document.getElementById('canvas-container').appendChild(this.renderer.domElement);
-                
                 this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
                 this.controls.enableDamping = true;
-                
-                this.raycaster = new THREE.Raycaster();
-                this.mouse = new THREE.Vector2();
-                this.renderer.domElement.addEventListener('pointerdown', (e) => this.onTap(e));
+            },
+
+            // Генерація кольору на основі тексту (щоб Сніданок завжди був одним кольором)
+            stringToColor(str) {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                return this.colors[Math.abs(hash) % this.colors.length];
             },
 
             getPos(time) {
@@ -111,172 +69,81 @@
                 const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
                 const diffDays = (time - startOfDay) / 86400000;
                 const angle = diffDays * Math.PI * 2;
-                return new THREE.Vector3(Math.cos(angle)*this.config.radius, diffDays*this.config.spiralStep, Math.sin(angle)*this.config.radius);
+                return new THREE.Vector3(Math.cos(angle)*15, diffDays*12, Math.sin(angle)*15);
             },
 
-            renderSpiral() {
+            renderAll() {
                 while(this.scene.children.length > 0) this.scene.remove(this.scene.children[0]);
-
-                const now = Date.now();
+                
+                // Рендер осі
                 const points = [];
-                for(let i = -24; i < 24 * 14; i++) points.push(this.getPos(now + i * 3600000));
-
-                const spiralGeo = new THREE.BufferGeometry().setFromPoints(points);
-                this.scene.add(new THREE.Line(spiralGeo, new THREE.LineBasicMaterial({ color: 0x222222 })));
+                const now = Date.now();
+                for(let i = -48; i < 24 * 30; i++) points.push(this.getPos(now + i * 3600000));
+                this.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x222222 })));
 
                 this.events.forEach(ev => {
-                    const curvePts = [];
-                    const steps = 64; // Збільшено для плавності
-                    for(let i=0; i<=steps; i++) curvePts.push(this.getPos(ev.start + (ev.end - ev.start)*(i/steps)));
+                    const color = ev.color || this.stringToColor(ev.title);
+                    this.drawEvent(ev.start, ev.end, color);
                     
-                    const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 64, 0.8, 8, false);
-                    const mesh = new THREE.Mesh(tube, new THREE.MeshBasicMaterial({ color: ev.color }));
-                    mesh.userData = { id: ev.id };
-                    this.scene.add(mesh);
+                    // ЛОГІКА ПОВТОРІВ: якщо в назві є натяк на серію або це імпорт
+                    if(ev.isRecurring) {
+                        for(let i=1; i<14; i++) { // Малюємо на 2 тижні вперед
+                            const offset = i * 86400000;
+                            this.drawEvent(ev.start + offset, ev.end + offset, color);
+                        }
+                    }
                 });
-
-                const nowMarker = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x3b82f6 }));
-                nowMarker.position.copy(this.getPos(now));
-                this.scene.add(nowMarker);
             },
 
-            // ВИПРАВЛЕНИЙ ІМПОРТ
-            async handleICS(e) {
+            drawEvent(start, end, color) {
+                const curvePts = [];
+                for(let i=0; i<=32; i++) curvePts.push(this.getPos(start + (end - start)*(i/32)));
+                const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 32, 0.7, 8, false);
+                this.scene.add(new THREE.Mesh(tube, new THREE.MeshBasicMaterial({ color: color })));
+            },
+
+            handleICS(e) {
                 const file = e.target.files[0];
-                if (!file) return;
-
                 const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const content = event.target.result;
-                        const lines = content.split(/\r?\n/);
-                        let evs = [], cur = null;
+                reader.onload = (f) => {
+                    const content = f.target.result;
+                    const vevents = content.split('BEGIN:VEVENT');
+                    vevents.shift();
+                    
+                    const newEvents = vevents.map(block => {
+                        const title = (block.match(/SUMMARY:(.*)/) || [0,"Без назви"])[1].trim();
+                        const start = this.parseICSDate(block.match(/DTSTART[:;](.*)/));
+                        const end = this.parseICSDate(block.match(/DTEND[:;](.*)/));
+                        const isRecurring = block.includes('RRULE:');
+                        return { id: Math.random(), title, start, end, isRecurring };
+                    }).filter(ev => ev.start && ev.end);
 
-                        lines.forEach(line => {
-                            if (line.includes('BEGIN:VEVENT')) cur = { id: Math.random(), color: '#3b82f6' };
-                            if (line.includes('END:VEVENT') && cur) { evs.push(cur); cur = null; }
-                            if (!cur) return;
-
-                            if (line.startsWith('SUMMARY')) cur.title = line.split(':')[1];
-                            if (line.startsWith('DTSTART')) cur.start = this.parseICSDate(line.split(':')[1]);
-                            if (line.startsWith('DTEND')) cur.end = this.parseICSDate(line.split(':')[1]);
-                        });
-
-                        this.events = [...this.events, ...evs.filter(e => e.start && e.end)];
-                        this.save();
-                        this.renderSpiral();
-                        alert(`Успішно додано ${evs.length} подій`);
-                    } catch (err) {
-                        alert("Помилка читання файлу");
-                    }
+                    this.events = [...this.events, ...newEvents];
+                    this.save();
+                    this.renderAll();
+                    this.focusNow();
                 };
                 reader.readAsText(file);
             },
 
-            parseICSDate(str) {
-                if(!str) return null;
-                const y = str.substring(0,4), m = str.substring(4,6), d = str.substring(6,8);
-                const h = str.substring(9,11), min = str.substring(11,13);
-                return new Date(`${y}-${m}-${d}T${h}:${min}:00Z`).getTime();
-            },
-
-            saveEvent() {
-                const title = document.getElementById('ev-title').value || "Подія " + new Date().toLocaleDateString();
-                const start = new Date(document.getElementById('ev-start').value).getTime();
-                const end = new Date(document.getElementById('ev-end').value).getTime();
-                
-                if(!start || !end) return alert("Вкажіть час");
-
-                const newEv = { id: this.editingId || Date.now(), title, start, end, color: this.selectedColor };
-                if(this.editingId) this.events = this.events.filter(e => e.id !== this.editingId);
-                this.events.push(newEv);
-                
-                this.save();
-                this.renderSpiral();
-                this.closeEditor();
-            },
-
-            deleteEvent() {
-                this.events = this.events.filter(e => e.id !== this.editingId);
-                this.save();
-                this.renderSpiral();
-                this.closeEditor();
-            },
-
-            openEditor(id = null) {
-                this.editingId = id;
-                const sheet = document.getElementById('editor');
-                const delBtn = document.getElementById('del-btn');
-                
-                if(id) {
-                    const ev = this.events.find(e => e.id === id);
-                    document.getElementById('ev-title').value = ev.title;
-                    document.getElementById('ev-start').value = new Date(ev.start - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-                    document.getElementById('ev-end').value = new Date(ev.end - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-                    delBtn.classList.remove('hidden');
-                } else {
-                    document.getElementById('ev-title').value = '';
-                    delBtn.classList.add('hidden');
-                }
-                
-                sheet.classList.remove('pointer-events-none');
-                sheet.querySelector('.bottom-sheet').classList.add('active');
-            },
-
-            closeEditor() {
-                const sheet = document.getElementById('editor');
-                sheet.querySelector('.bottom-sheet').classList.remove('active');
-                setTimeout(() => sheet.classList.add('pointer-events-none'), 400);
-            },
-
-            onTap(e) {
-                this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-                this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-                this.raycaster.setFromCamera(this.mouse, this.camera);
-                const hits = this.raycaster.intersectObjects(this.scene.children);
-                const hit = hits.find(h => h.object.userData.id);
-                if(hit) this.openEditor(hit.object.userData.id);
+            parseICSDate(match) {
+                if(!match) return null;
+                const d = match[1].replace(/[^0-9T]/g, ''); // Очистка від TZID
+                const y = d.substring(0,4), m = d.substring(4,6), day = d.substring(6,8);
+                const h = d.substring(9,11), min = d.substring(11,13);
+                return new Date(`${y}-${m}-${day}T${h}:${min}:00`).getTime();
             },
 
             focusNow() {
                 const target = this.getPos(Date.now());
                 this.controls.target.copy(target);
-                this.camera.position.set(target.x + 25, target.y + 15, target.z + 25);
+                this.camera.position.set(target.x + 30, target.y + 20, target.z + 30);
             },
 
             importClick() { document.getElementById('file-input').click(); },
-            save() { localStorage.setItem('flip_aura', JSON.stringify(this.events)); },
-            load() { const d = localStorage.getItem('flip_aura'); if(d) this.events = JSON.parse(d); },
-            updateClock() {
-                document.getElementById('clock').innerText = new Date().toLocaleTimeString('uk-UA', {hour:'2-digit', minute:'2-digit'}) + " • " + new Date().toLocaleDateString('uk-UA', {day:'numeric', month:'long'});
-                setTimeout(() => this.updateClock(), 1000);
-            },
-            initColors() {
-                const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#64748b'];
-                const container = document.getElementById('color-dots');
-                colors.forEach(c => {
-                    const dot = document.createElement('div');
-                    dot.className = 'w-7 h-7 rounded-full border-2 border-white/10 active:scale-75 transition';
-                    dot.style.background = c;
-                    dot.onclick = () => {
-                        this.selectedColor = c;
-                        container.querySelectorAll('div').forEach(d => d.style.borderColor = 'rgba(255,255,255,0.1)');
-                        dot.style.borderColor = 'white';
-                    };
-                    container.appendChild(dot);
-                });
-                this.selectedColor = colors[3];
-            },
-            animate() {
-                requestAnimationFrame(() => this.animate());
-                this.controls.update();
-                this.renderer.render(this.scene, this.camera);
-            },
-            onResize() {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-            }
+            save() { localStorage.setItem('flip_v12_5', JSON.stringify(this.events)); },
+            load() { const d = localStorage.getItem('flip_v12_5'); if(d) this.events = JSON.parse(d); },
+            animate() { requestAnimationFrame(() => this.animate()); this.controls.update(); this.renderer.render(this.scene, this.camera); }
         };
 
         core.init();
