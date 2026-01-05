@@ -3,557 +3,397 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLIP! v10 Stable</title>
+    <title>FLIP v11 Miracle</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { margin: 0; overflow: hidden; background: #0f172a; font-family: 'Inter', sans-serif; color: white; }
         
-        body { 
-            margin: 0; overflow: hidden; background: #f8fafc; 
-            font-family: 'Outfit', sans-serif; display: flex; flex-direction: column; height: 100vh;
-        }
-
-        /* UI Layout */
-        #ui-container { flex: 0 0 auto; z-index: 20; padding: 12px; pointer-events: none; }
-        #canvas-wrapper { flex: 1 1 auto; position: relative; background: #fff; width: 100%; overflow: hidden; }
+        /* UI Layers */
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
         
         /* Interactive Elements */
-        .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.05); pointer-events: auto; }
-        .btn { transition: all 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .btn:active { transform: scale(0.96); }
+        .interactive { pointer-events: auto; }
         
-        .input-std { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; font-size: 14px; width: 100%; outline: none; }
-        .input-std:focus { border-color: #2563eb; background: #fff; }
+        /* Glassmorphism */
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass-panel { background: #1e293b; border-radius: 20px 20px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,0.3); }
 
-        /* Custom Scroll */
-        .scroll-hide::-webkit-scrollbar { display: none; }
+        /* Custom Inputs */
+        input, textarea { background: #334155; color: white; border: 1px solid #475569; border-radius: 8px; width: 100%; padding: 8px; outline: none; }
+        input:focus { border-color: #3b82f6; }
         
-        /* Color Dots */
-        .color-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
-        .color-dot.active { border-color: #1e293b; transform: scale(1.1); }
+        /* Animation */
+        .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-    <div id="ui-container" class="absolute inset-x-0 top-0">
-        <div class="card p-4 max-w-md mx-auto space-y-3">
-            
-            <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <h1 class="text-2xl font-800 text-slate-800 tracking-tight">FLIP<span class="text-blue-600">!</span></h1>
-                    <span id="header-date" class="text-xs font-bold text-slate-400 uppercase mt-1"></span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="app.focusNow()" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold text-xs hover:bg-blue-100 transition-colors">◎</button>
-                    <div id="clock" class="bg-slate-900 text-white px-3 py-1.5 rounded-full text-xs font-bold tabular-nums">00:00</div>
-                </div>
-            </div>
+    <div id="canvas-container"></div>
 
-            <div class="grid grid-cols-[1fr_auto_auto] gap-2">
-                <button onclick="app.openModal()" class="btn h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">
-                    + НОВА ПОДІЯ
+    <div id="ui-layer">
+        
+        <div class="p-4 flex justify-between items-start interactive">
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tight text-white drop-shadow-md">FLIP<span class="text-blue-500">.</span></h1>
+                <div id="current-date" class="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-1">Checking...</div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="app.resetView()" class="glass w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition">
+                    ◎
                 </button>
-                
                 <div class="relative group">
-                    <button class="btn w-12 h-12 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-600">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    <button class="glass w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10">
+                        ⚙️
                     </button>
-                    <div class="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 hidden group-hover:block p-1 overflow-hidden">
-                        <label class="flex items-center gap-3 px-3 py-3 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700">
-                            <span>📂 Імпорт (.ics)</span>
-                            <input type="file" accept=".ics,.json" class="hidden" onchange="app.importFile(this)">
-                        </label>
-                        <button onclick="app.exportICS()" class="w-full text-left flex items-center gap-3 px-3 py-3 hover:bg-slate-50 text-sm font-medium text-slate-700">
-                            <span>💾 Експорт (.ics)</span>
-                        </button>
-                        <div class="h-px bg-slate-100 my-1"></div>
-                        <button onclick="app.hardReset()" class="w-full text-left flex items-center gap-3 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50">
-                            ⚠️ Скинути все
-                        </button>
+                    <div class="absolute right-0 top-12 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-2 hidden group-hover:block interactive">
+                         <div class="text-[10px] text-slate-400 uppercase font-bold px-2 py-1">Налаштування</div>
+                         <label class="block px-2 py-2 text-sm hover:bg-slate-700 rounded cursor-pointer">
+                             📥 Імпорт (.ics)
+                             <input type="file" accept=".ics" class="hidden" onchange="app.importICS(this)">
+                         </label>
+                         <button onclick="app.wipeData()" class="w-full text-left block px-2 py-2 text-sm text-red-400 hover:bg-slate-700 rounded">
+                             🗑 Скинути все
+                         </button>
+                         <div class="h-px bg-slate-700 my-2"></div>
+                         <div class="px-2 pb-2">
+                             <label class="text-[10px] text-slate-400">Висота витка</label>
+                             <input type="range" min="3" max="12" step="0.5" id="spiral-h" class="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                         </div>
                     </div>
-                </div>
-
-                <button onclick="document.getElementById('settings-panel').classList.toggle('hidden')" class="btn w-12 h-12 bg-slate-100 hover:bg-slate-200 rounded-2xl text-slate-600">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                </button>
-            </div>
-
-            <div id="settings-panel" class="hidden pt-2 border-t border-slate-100 animate-in slide-in-from-top-2">
-                <div class="grid grid-cols-2 gap-3 mb-2">
-                    <div class="space-y-1">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase pl-1">Початок</label>
-                        <input id="cfg-from" type="date" class="input-std py-1.5 text-xs">
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase pl-1">Кінець</label>
-                        <input id="cfg-to" type="date" class="input-std py-1.5 text-xs">
-                    </div>
-                </div>
-                <div class="space-y-1">
-                    <div class="flex justify-between">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase pl-1">Висота витка</label>
-                        <span id="height-val" class="text-[10px] font-bold text-blue-600">6.0</span>
-                    </div>
-                    <input id="cfg-height" type="range" min="2" max="15" step="0.5" value="6" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
             </div>
+        </div>
 
-            <div id="event-list" class="max-h-[120px] overflow-y-auto scroll-hide space-y-2 pt-1">
-                </div>
+        <div class="p-4 pb-6 interactive flex justify-center items-end gap-4 bg-gradient-to-t from-slate-900/90 to-transparent">
+            <button onclick="app.openModal()" class="h-14 px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg shadow-blue-900/50 font-bold text-lg flex items-center gap-2 transition transform active:scale-95">
+                <span class="text-2xl">+</span> Нова подія
+            </button>
         </div>
     </div>
 
-    <div id="canvas-wrapper"></div>
-
-    <div id="modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl scale-95 opacity-0 transition-all duration-200" id="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-900 text-slate-800">Деталі події</h2>
-                <button onclick="app.closeModal()" class="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500">✕</button>
+    <div id="modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-end justify-center" onclick="if(event.target===this) app.closeModal()">
+        <div class="glass-panel w-full max-w-lg p-6 slide-up interactive" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Деталі події</h2>
+                <button onclick="app.closeModal()" class="w-8 h-8 bg-slate-700 rounded-full text-slate-300">✕</button>
             </div>
-            
+
             <div class="space-y-4">
-                <input id="ev-title" type="text" placeholder="Назва події" class="input-std text-lg font-bold">
-                <textarea id="ev-desc" placeholder="Опис / Нотатки" rows="2" class="input-std text-xs resize-none"></textarea>
+                <input id="ev-title" type="text" placeholder="Назва (напр. Зустріч)" class="text-lg font-bold bg-transparent border-b border-slate-600 rounded-none px-0 focus:border-blue-500 placeholder-slate-500">
                 
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="space-y-1">
-                        <label class="text-[9px] font-bold text-slate-400 uppercase">Початок</label>
-                        <input id="ev-start" type="datetime-local" class="input-std text-xs p-2">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] uppercase text-slate-400 font-bold">Початок</label>
+                        <input id="ev-start" type="datetime-local" class="text-sm">
                     </div>
-                    <div class="space-y-1">
-                        <label class="text-[9px] font-bold text-slate-400 uppercase">Кінець</label>
-                        <input id="ev-end" type="datetime-local" class="input-std text-xs p-2">
+                    <div>
+                        <label class="text-[10px] uppercase text-slate-400 font-bold">Кінець</label>
+                        <input id="ev-end" type="datetime-local" class="text-sm">
                     </div>
                 </div>
 
-                <div class="flex justify-between px-1" id="color-palette"></div>
-                <input type="hidden" id="ev-color" value="#3b82f6">
+                <div>
+                    <label class="text-[10px] uppercase text-slate-400 font-bold mb-2 block">Колір</label>
+                    <div class="flex gap-3" id="color-picker">
+                        </div>
+                    <input type="hidden" id="ev-color" value="#3b82f6">
+                </div>
 
-                <div class="flex gap-3 pt-2">
-                    <button onclick="app.saveEvent()" class="flex-1 btn h-12 bg-blue-600 text-white rounded-xl font-bold">ЗБЕРЕГТИ</button>
-                    <button id="btn-delete" onclick="app.deleteEvent()" class="hidden w-12 h-12 btn bg-red-50 text-red-500 rounded-xl">🗑</button>
+                <div class="flex gap-3 pt-4">
+                    <button onclick="app.saveEvent()" class="flex-1 h-12 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold">Зберегти</button>
+                    <button id="btn-delete" onclick="app.deleteEvent()" class="hidden w-12 h-12 bg-red-900/50 text-red-400 border border-red-800 rounded-xl">🗑</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- CORE APPLICATION LOGIC ---
         const app = {
-            data: { events: [], settings: { h: 6 } },
-            scene: null, camera: null, renderer: null, controls: null,
-            groups: { main: null, events: null },
+            state: {
+                events: [],
+                config: { radius: 10, heightPerDay: 6, daysView: 14 }
+            },
+            scene: null, camera: null, renderer: null,
             editingId: null,
 
             init() {
-                // Load Data
-                try {
-                    const stored = localStorage.getItem('flip_v10_data');
-                    if (stored) this.data = JSON.parse(stored);
-                } catch(e) { console.error('Data load error', e); }
-
-                // Default Settings Dates
-                const now = new Date();
-                const dFrom = new Date(now); dFrom.setDate(now.getDate() - 2);
-                const dTo = new Date(now); dTo.setDate(now.getDate() + 14);
-                
-                // Init UI Inputs
-                document.getElementById('cfg-from').value = dFrom.toISOString().split('T')[0];
-                document.getElementById('cfg-to').value = dTo.toISOString().split('T')[0];
-                
-                // Initialize 3D
-                this.initThree();
-                this.setupInputs();
-                this.renderLoop();
-                
-                // Initial Build
-                this.buildWorld();
-                this.updateUI();
-            },
-
-            initThree() {
-                const container = document.getElementById('canvas-wrapper');
-                const w = container.clientWidth;
-                const h = container.clientHeight;
-
+                // 1. Setup Three.js
+                const container = document.getElementById('canvas-container');
                 this.scene = new THREE.Scene();
-                this.scene.background = new THREE.Color(0xffffff);
+                this.scene.fog = new THREE.FogExp2(0x0f172a, 0.015); // Atmospheric fog
                 
-                // Camera
-                this.camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
-                this.camera.position.set(40, 30, 40);
-
-                // Renderer
+                this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+                this.camera.position.set(35, 20, 35);
+                
                 this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                this.renderer.setSize(w, h);
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 container.appendChild(this.renderer.domElement);
-
-                // Controls
-                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-                this.controls.enableDamping = true;
-                this.controls.dampingFactor = 0.05;
-
-                // Groups
-                this.groups.main = new THREE.Group();
-                this.groups.events = new THREE.Group();
-                this.scene.add(this.groups.main, this.groups.events);
-
-                // Helper: Current Time Disk
-                const disk = new THREE.Mesh(
-                    new THREE.CylinderGeometry(10, 10, 0.05, 64, 1, true),
-                    new THREE.MeshBasicMaterial({ color: 0x2563eb, opacity: 0.1, transparent: true, side: THREE.DoubleSide })
-                );
-                this.scene.add(disk); // Static reference plane
                 
-                // Current Time Marker (Blue ball)
-                this.marker = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.6),
-                    new THREE.MeshBasicMaterial({ color: 0x2563eb })
-                );
-                this.scene.add(this.marker);
+                const controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                controls.enableDamping = true;
+                controls.maxDistance = 80;
+
+                // Lighting
+                const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(10, 20, 10);
+                this.scene.add(ambient, dirLight);
+
+                // 2. Load Data
+                this.loadData();
+
+                // 3. Listeners
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
 
                 // Raycaster for clicks
                 const raycaster = new THREE.Raycaster();
                 const mouse = new THREE.Vector2();
-                
                 container.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    // Fix coordinate calculation
-                    const rect = container.getBoundingClientRect();
-                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                    
+                    // Normalize mouse
+                    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
                     raycaster.setFromCamera(mouse, this.camera);
-                    const intersects = raycaster.intersectObjects(this.groups.events.children);
                     
-                    if (intersects.length > 0) {
-                        const id = intersects[0].object.userData.id;
-                        this.openModal(id);
-                    }
+                    const hits = raycaster.intersectObjects(this.scene.children);
+                    const eventHit = hits.find(h => h.object.userData.eventId);
+                    if(eventHit) this.openModal(eventHit.object.userData.eventId);
+                });
+                
+                // Slider Listener
+                document.getElementById('spiral-h').addEventListener('input', (e) => {
+                    this.state.config.heightPerDay = parseFloat(e.target.value);
+                    this.buildScene();
                 });
 
-                // Window Resize
-                window.addEventListener('resize', () => {
-                    const nw = container.clientWidth;
-                    const nh = container.clientHeight;
-                    this.camera.aspect = nw / nh;
-                    this.camera.updateProjectionMatrix();
-                    this.renderer.setSize(nw, nh);
-                });
+                // Start Loop
+                this.buildScene();
+                this.animate(controls);
+                this.updateClock();
             },
 
-            // --- MATH & GEOMETRY ---
-            getSpiralPos(timestamp) {
-                const cfgFrom = new Date(document.getElementById('cfg-from').value).getTime();
-                const cfgH = parseFloat(document.getElementById('cfg-height').value);
-                
-                // Hours passed since start date
-                const hours = (timestamp - cfgFrom) / 3600000;
-                
-                // One revolution per 24 hours
-                const angle = (hours / 24) * Math.PI * 2;
-                const radius = 10;
-                const y = (hours / 24) * cfgH;
+            // --- MATH CORE ---
+            getPointAtTime(timeMs, startOfDayMs) {
+                const daysPassed = (timeMs - startOfDayMs) / 86400000;
+                const angle = daysPassed * Math.PI * 2; // 1 day = 1 full circle
+                const y = daysPassed * this.state.config.heightPerDay;
+                const r = this.state.config.radius;
+                return new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r);
+            },
 
-                return new THREE.Vector3(
-                    Math.cos(angle) * radius,
-                    y,
-                    Math.sin(angle) * radius
+            buildScene() {
+                // Clean up
+                this.scene.children = this.scene.children.filter(c => c.type === 'AmbientLight' || c.type === 'DirectionalLight');
+                
+                const now = new Date();
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                
+                // 1. Draw Spiral Guide (The "Wire")
+                const points = [];
+                const limit = this.state.config.daysView;
+                for(let i=0; i <= limit * 24; i++) {
+                    const t = startOfDay + (i * 3600000); // every hour
+                    points.push(this.getPointAtTime(t, startOfDay));
+                }
+                const spiralGeo = new THREE.BufferGeometry().setFromPoints(points);
+                const spiralMat = new THREE.LineBasicMaterial({ color: 0x334155 });
+                this.scene.add(new THREE.Line(spiralGeo, spiralMat));
+
+                // 2. Draw Events (Curved Tubes)
+                this.state.events.forEach(ev => {
+                    if (ev.end < startOfDay) return; // Old event
+                    
+                    // Generate curve points along the spiral
+                    const curvePoints = [];
+                    const steps = 50; // Smoothness
+                    for(let i=0; i<=steps; i++) {
+                        const t = ev.start + (ev.end - ev.start) * (i/steps);
+                        curvePoints.push(this.getPointAtTime(t, startOfDay));
+                    }
+                    
+                    if(curvePoints.length < 2) return;
+
+                    const curve = new THREE.CatmullRomCurve3(curvePoints);
+                    const geometry = new THREE.TubeGeometry(curve, 20, 0.6, 8, false);
+                    const material = new THREE.MeshPhongMaterial({ color: ev.color, shininess: 50 });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.userData = { eventId: ev.id };
+                    this.scene.add(mesh);
+                });
+
+                // 3. Current Time Marker
+                const curPos = this.getPointAtTime(Date.now(), startOfDay);
+                const marker = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.8),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
                 );
+                marker.position.copy(curPos);
+                this.scene.add(marker);
             },
 
-            buildWorld() {
-                // Clear old
-                this.groups.main.clear();
-                this.groups.events.clear();
-
-                const tStart = new Date(document.getElementById('cfg-from').value).getTime();
-                const tEnd = new Date(document.getElementById('cfg-to').value).getTime();
-                
-                // Safety check
-                if (!tStart || !tEnd || tEnd <= tStart) return;
-
-                // 1. Draw Spiral Base Line
-                const pts = [];
-                // Optimized step: 30 minutes
-                for (let t = tStart; t <= tEnd; t += 1800000) {
-                    pts.push(this.getSpiralPos(t));
-                }
-                const spiralGeo = new THREE.BufferGeometry().setFromPoints(pts);
-                const spiralMat = new THREE.LineBasicMaterial({ color: 0xcbd5e1 });
-                this.groups.main.add(new THREE.Line(spiralGeo, spiralMat));
-
-                // 2. Draw Events
-                this.data.events.forEach(ev => {
-                    // Only draw if within range
-                    if (ev.end < tStart || ev.start > tEnd) return;
-
-                    const drawStart = Math.max(ev.start, tStart);
-                    const drawEnd = Math.min(ev.end, tEnd);
-                    
-                    if (drawEnd - drawStart < 60000) return; // Skip too short
-
-                    const curvePts = [];
-                    // Adaptive resolution: 10 points usually enough
-                    for(let i=0; i<=10; i++) {
-                        const t = drawStart + (drawEnd - drawStart) * (i/10);
-                        curvePts.push(this.getSpiralPos(t));
-                    }
-                    
-                    const curve = new THREE.CatmullRomCurve3(curvePts);
-                    const tubeGeo = new THREE.TubeGeometry(curve, 12, 0.4, 8, false);
-                    const tubeMat = new THREE.MeshBasicMaterial({ color: ev.color });
-                    const mesh = new THREE.Mesh(tubeGeo, tubeMat);
-                    mesh.userData = { id: ev.id };
-                    this.groups.events.add(mesh);
-                });
-            },
-
-            renderLoop() {
-                requestAnimationFrame(() => this.renderLoop());
-                
-                const now = Date.now();
-                const pos = this.getSpiralPos(now);
-                
-                // Update Marker
-                this.marker.position.copy(pos);
-                
-                // Live Clock Update
-                const d = new Date();
-                document.getElementById('clock').innerText = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                document.getElementById('header-date').innerText = d.toLocaleDateString('uk-UA', {weekday:'short', day:'numeric', month:'short'});
-
-                this.controls.update();
-                this.renderer.render(this.scene, this.camera);
-            },
-
-            // --- DATA MANAGEMENT ---
-            saveData() {
-                localStorage.setItem('flip_v10_data', JSON.stringify(this.data));
-                this.buildWorld();
-                this.updateUI();
-            },
-
-            openModal(id = null) {
-                this.editingId = id;
-                const modal = document.getElementById('modal');
-                const content = document.getElementById('modal-content');
-                const btnDel = document.getElementById('btn-delete');
-                
-                // Defaults
-                let ev = { 
-                    title: '', desc: '', 
-                    start: Date.now(), end: Date.now() + 3600000, 
-                    color: '#3b82f6' 
-                };
-
-                if (id) {
-                    const found = this.data.events.find(e => e.id === id);
-                    if (found) ev = found;
-                    btnDel.classList.remove('hidden');
-                } else {
-                    btnDel.classList.add('hidden');
-                }
-
-                // Set Inputs (Timezone fix)
-                const toLocal = (ts) => new Date(ts - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                
-                document.getElementById('ev-title').value = ev.title;
-                document.getElementById('ev-desc').value = ev.desc || '';
-                document.getElementById('ev-start').value = toLocal(ev.start);
-                document.getElementById('ev-end').value = toLocal(ev.end);
-                document.getElementById('ev-color').value = ev.color;
-                
-                this.renderPalette(ev.color);
-
-                // Show
-                modal.classList.remove('hidden');
-                setTimeout(() => {
-                    content.classList.remove('scale-95', 'opacity-0');
-                    content.classList.add('scale-100', 'opacity-100');
-                }, 10);
-            },
-
-            closeModal() {
-                const modal = document.getElementById('modal');
-                const content = document.getElementById('modal-content');
-                content.classList.remove('scale-100', 'opacity-100');
-                content.classList.add('scale-95', 'opacity-0');
-                setTimeout(() => modal.classList.add('hidden'), 200);
-            },
-
+            // --- DATA LOGIC ---
             saveEvent() {
                 const title = document.getElementById('ev-title').value || 'Без назви';
                 const start = new Date(document.getElementById('ev-start').value).getTime();
                 const end = new Date(document.getElementById('ev-end').value).getTime();
                 const color = document.getElementById('ev-color').value;
-                const desc = document.getElementById('ev-desc').value;
 
-                if (end <= start) { alert('Кінець події має бути пізніше початку'); return; }
-
-                if (this.editingId) {
-                    const idx = this.data.events.findIndex(e => e.id === this.editingId);
-                    if (idx !== -1) this.data.events[idx] = { id: this.editingId, title, desc, start, end, color };
-                } else {
-                    this.data.events.push({ id: Date.now(), title, desc, start, end, color });
+                if (isNaN(start) || isNaN(end) || end <= start) {
+                    alert('Перевірте дати!'); return;
                 }
 
-                this.saveData();
-                this.closeModal();
+                if (this.editingId) {
+                    const idx = this.state.events.findIndex(e => e.id === this.editingId);
+                    if (idx !== -1) this.state.events[idx] = { ...this.state.events[idx], title, start, end, color };
+                } else {
+                    this.state.events.push({ id: Date.now(), title, start, end, color });
+                }
+
+                this.saveToStorage();
+                this.buildScene();
+                this.closeModal(); // FORCE CLOSE
             },
 
             deleteEvent() {
-                if (confirm('Видалити цю подію?')) {
-                    this.data.events = this.data.events.filter(e => e.id !== this.editingId);
-                    this.saveData();
+                if(confirm('Видалити?')) {
+                    this.state.events = this.state.events.filter(e => e.id !== this.editingId);
+                    this.saveToStorage();
+                    this.buildScene();
                     this.closeModal();
                 }
             },
 
-            // --- UI HELPERS ---
-            updateUI() {
-                const list = document.getElementById('event-list');
-                const now = Date.now();
-                // Show upcoming 10 events
-                const upcoming = this.data.events
-                    .filter(e => e.end > now)
-                    .sort((a,b) => a.start - b.start)
-                    .slice(0, 10);
-
-                list.innerHTML = upcoming.map(e => `
-                    <div onclick="app.openModal(${e.id})" class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100 cursor-pointer hover:bg-white hover:shadow-sm transition-all">
-                        <div class="w-1.5 h-8 rounded-full" style="background:${e.color}"></div>
-                        <div class="flex-1 min-w-0">
-                            <div class="font-bold text-xs text-slate-700 truncate">${e.title}</div>
-                            <div class="text-[10px] text-slate-400">
-                                ${new Date(e.start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} - 
-                                ${new Date(e.end).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-                if(!upcoming.length) list.innerHTML = '<div class="text-center text-[10px] text-slate-300 py-2">Немає найближчих подій</div>';
-            },
-
-            renderPalette(activeColor) {
-                const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#d946ef', '#64748b'];
-                const container = document.getElementById('color-palette');
-                container.innerHTML = colors.map(c => `
-                    <div class="color-dot ${c === activeColor ? 'active' : ''}" 
-                         style="background: ${c}" 
-                         onclick="document.getElementById('ev-color').value='${c}'; app.renderPalette('${c}')">
-                    </div>
-                `).join('');
-            },
-
-            focusNow() {
-                const pos = this.getSpiralPos(Date.now());
-                this.controls.target.copy(pos);
-                // Offset camera slightly up and out
-                this.camera.position.set(pos.x + 30, pos.y + 20, pos.z + 30);
-                this.controls.update();
-            },
-
-            setupInputs() {
-                ['cfg-from', 'cfg-to', 'cfg-height'].forEach(id => {
-                    document.getElementById(id).addEventListener('input', (e) => {
-                        if(id === 'cfg-height') document.getElementById('height-val').innerText = parseFloat(e.target.value).toFixed(1);
-                        this.buildWorld();
-                    });
-                });
-            },
-
-            // --- IMPORT / EXPORT (Improved) ---
-            hardReset() {
-                if(confirm('УВАГА: Це видалить всі події і налаштування. Продовжити?')) {
-                    localStorage.removeItem('flip_v10_data');
-                    location.reload();
-                }
-            },
-
-            exportICS() {
-                let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//FLIP//UA\n";
-                this.data.events.forEach(ev => {
-                    const fmt = d => new Date(d).toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
-                    ics += "BEGIN:VEVENT\n";
-                    ics += `DTSTART:${fmt(ev.start)}\nDTEND:${fmt(ev.end)}\nSUMMARY:${ev.title}\n`;
-                    if(ev.desc) ics += `DESCRIPTION:${ev.desc}\n`;
-                    ics += "END:VEVENT\n";
-                });
-                ics += "END:VCALENDAR";
-                
-                const blob = new Blob([ics], {type: 'text/calendar'});
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `flip_calendar_${Date.now()}.ics`;
-                link.click();
-            },
-
-            importFile(input) {
+            importICS(input) {
                 const file = input.files[0];
                 if(!file) return;
-                const reader = new FileReader();
                 
+                const reader = new FileReader();
                 reader.onload = (e) => {
-                    const text = e.target.result;
-                    if (file.name.endsWith('.json')) {
-                        try {
-                            const parsed = JSON.parse(text);
-                            if(parsed.events) this.data = parsed;
-                            this.saveData();
-                            alert('JSON успішно завантажено');
-                        } catch(err) { alert('Помилка JSON'); }
-                    } else {
-                        // Robust ICS Parser
-                        const events = [];
-                        const lines = text.split(/\r\n|\n|\r/);
-                        let inEvent = false;
-                        let curr = {};
+                    const content = e.target.result;
+                    // Advanced Unfolding (fixing Google's split lines)
+                    const unfolded = content.replace(/\r\n /g, '').replace(/\n /g, '');
+                    
+                    const events = [];
+                    const lines = unfolded.split(/\r\n|\n/);
+                    let current = null;
+                    
+                    const parseDate = (str) => {
+                        // Handle TZID=...:YYYYMMDDTHHMMSS
+                        const clean = str.split(':').pop(); 
+                        if(!clean) return null;
                         
-                        // Regex helpers
-                        const getDate = (l) => {
-                            const str = l.split(':')[1];
-                            if(!str) return null;
-                            // Basic support for 20230101T120000Z
-                            const y = str.substr(0,4), m = str.substr(4,2), d = str.substr(6,2);
-                            const h = str.substr(9,2) || '00', min = str.substr(11,2) || '00';
-                            return new Date(`${y}-${m}-${d}T${h}:${min}:00Z`).getTime();
-                        };
+                        const y = clean.substr(0,4), m = clean.substr(4,2), d = clean.substr(6,2);
+                        const h = clean.substr(9,2) || '00', min = clean.substr(11,2) || '00';
+                        return new Date(`${y}-${m}-${d}T${h}:${min}:00`).getTime(); // Assume local for simplicity or parse Z
+                    };
 
-                        lines.forEach(l => {
-                            if(l.startsWith('BEGIN:VEVENT')) { inEvent = true; curr = {id: Math.random(), color: '#3b82f6'}; }
-                            else if(l.startsWith('END:VEVENT')) { 
-                                if(curr.start && curr.title) events.push(curr); 
-                                inEvent = false; 
-                            }
-                            else if(inEvent) {
-                                if(l.startsWith('SUMMARY:')) curr.title = l.substring(8);
-                                if(l.startsWith('DTSTART')) curr.start = getDate(l);
-                                if(l.startsWith('DTEND')) curr.end = getDate(l);
-                                if(l.startsWith('DESCRIPTION:')) curr.desc = l.substring(12);
-                            }
-                        });
-
-                        if(events.length > 0) {
-                            this.data.events = [...this.data.events, ...events];
-                            this.saveData();
-                            alert(`Імпортовано ${events.length} подій`);
-                        } else {
-                            alert('Не знайдено подій у файлі');
+                    for(let line of lines) {
+                        if (line.startsWith('BEGIN:VEVENT')) current = { id: Math.random(), color: '#3b82f6' };
+                        else if (line.startsWith('END:VEVENT')) { 
+                            if(current && current.start) events.push(current); 
+                            current = null; 
                         }
+                        else if (current) {
+                            if (line.startsWith('SUMMARY:')) current.title = line.substring(8);
+                            if (line.startsWith('DTSTART')) current.start = parseDate(line);
+                            if (line.startsWith('DTEND')) current.end = parseDate(line);
+                        }
+                    }
+
+                    if(events.length) {
+                        this.state.events = [...this.state.events, ...events];
+                        this.saveToStorage();
+                        this.buildScene();
+                        alert(`Завантажено ${events.length} подій!`);
+                    } else {
+                        alert("Не знайдено подій або помилка формату.");
                     }
                 };
                 reader.readAsText(file);
+                input.value = ''; // Reset input
+            },
+
+            // --- UI HELPERS ---
+            openModal(id = null) {
+                this.editingId = id;
+                const modal = document.getElementById('modal');
+                const btnDel = document.getElementById('btn-delete');
+                const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'];
+                
+                // Fill Colors
+                document.getElementById('color-picker').innerHTML = colors.map(c => 
+                    `<div onclick="document.getElementById('ev-color').value='${c}'; this.parentElement.childNodes.forEach(n=>n.style.border='none'); this.style.border='2px solid white'" 
+                     style="background:${c}; width:24px; height:24px; border-radius:50%; cursor:pointer;"></div>`
+                ).join('');
+
+                let ev = { start: Date.now(), end: Date.now()+3600000, title: '', color: '#3b82f6' };
+                if (id) {
+                    ev = this.state.events.find(e => e.id === id) || ev;
+                    btnDel.classList.remove('hidden');
+                } else {
+                    btnDel.classList.add('hidden');
+                }
+
+                // TZ Offset fix for inputs
+                const toInput = (ts) => new Date(ts - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+                
+                document.getElementById('ev-title').value = ev.title;
+                document.getElementById('ev-start').value = toInput(ev.start);
+                document.getElementById('ev-end').value = toInput(ev.end);
+                document.getElementById('ev-color').value = ev.color;
+                
+                modal.classList.remove('hidden');
+            },
+
+            closeModal() {
+                document.getElementById('modal').classList.add('hidden');
+                this.editingId = null;
+            },
+
+            resetView() {
+                const now = new Date();
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                const pos = this.getPointAtTime(Date.now(), startOfDay);
+                
+                // Fly to current time
+                this.camera.position.set(pos.x + 20, pos.y + 10, pos.z + 20);
+                this.camera.lookAt(pos);
+            },
+
+            updateClock() {
+                const now = new Date();
+                document.getElementById('current-date').innerText = now.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+                setInterval(() => this.updateClock(), 60000);
+            },
+
+            saveToStorage() { localStorage.setItem('flip_v11', JSON.stringify(this.state)); },
+            loadData() {
+                const d = localStorage.getItem('flip_v11');
+                if(d) this.state = JSON.parse(d);
+            },
+            wipeData() { 
+                if(confirm('Точно видалити все?')) {
+                    localStorage.removeItem('flip_v11'); 
+                    location.reload(); 
+                }
+            },
+            animate(controls) {
+                requestAnimationFrame(() => this.animate(controls));
+                controls.update();
+                this.renderer.render(this.scene, this.camera);
             }
         };
 
-        // Start App
-        window.onload = () => app.init();
+        app.init();
     </script>
 </body>
 </html>
