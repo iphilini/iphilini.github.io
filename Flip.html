@@ -3,171 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLIP! v17.0 Architect</title>
+    <title>FLIP! v18.0 Kernel</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;500;800&display=swap');
-        body { margin: 0; background: #ffffff; font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; color: #1a1a1a; }
-        .neo-glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.05); }
-        .sidebar-event { border-radius: 16px; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: 1px solid transparent; }
-        .sidebar-event:hover { border-color: #3b82f6; transform: translateX(5px); background: #f8fafc; }
-        #canvas-container { background: radial-gradient(circle at 50% 50%, #fefefe 0%, #f1f5f9 100%); }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
+        body { margin: 0; background: #ffffff; font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; }
+        .panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(15px); border: 1px solid rgba(0,0,0,0.08); border-radius: 24px; pointer-events: auto; }
+        .event-card { transition: 0.3s; cursor: pointer; border-left: 4px solid #3b82f6; }
+        .event-card:hover { background: #f1f5f9; transform: scale(1.02); }
+        .drawer { transform: translateY(100%); transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .drawer.active { transform: translateY(0); }
     </style>
 </head>
 <body>
 
     <div id="canvas-container" class="fixed inset-0"></div>
 
-    <div class="relative z-10 pointer-events-none h-screen flex flex-row">
+    <div class="relative z-10 pointer-events-none h-screen flex flex-col p-4">
         
-        <aside class="w-80 p-6 flex flex-col pointer-events-auto neo-glass shadow-2xl m-4 rounded-[32px]">
-            <header class="mb-8">
-                <div class="flex items-center justify-between">
-                    <h1 class="text-2xl font-extrabold tracking-tighter text-blue-600">FLIP! <span class="text-gray-300 font-light">17</span></h1>
-                    <div id="sync-status" class="w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e]"></div>
-                </div>
-                <p id="current-date" class="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest"></p>
-            </header>
-
-            <div class="flex-1 overflow-y-auto pr-2 space-y-4 no-scrollbar" id="google-list">
-                <div class="opacity-30 text-center py-10 text-xs uppercase tracking-tighter">Очікування синхронізації...</div>
+        <header class="flex justify-between items-center pointer-events-auto">
+            <div class="panel px-5 py-3 shadow-lg">
+                <h1 class="font-black text-xl text-blue-600">FLIP! <span class="text-gray-400 font-normal">v18</span></h1>
+                <p id="clock-display" class="text-[10px] font-bold opacity-40 uppercase tracking-widest"></p>
             </div>
-
-            <footer class="mt-6 pt-6 border-t border-gray-100">
-                <button onclick="core.triggerSync()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-blue-200 active:scale-95 transition">
-                    СИНХРОНІЗУВАТИ GOOGLE
-                </button>
-            </footer>
-        </aside>
-
-        <main class="flex-1 flex flex-col justify-between p-8">
-            <div class="flex justify-end gap-3 pointer-events-auto">
-                <div class="neo-glass p-2 rounded-2xl flex gap-1">
-                    <button onclick="core.setMode('day')" class="px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-100 transition">ДЕНЬ</button>
-                    <button onclick="core.setMode('week')" class="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-lg">ТИЖДЕНЬ</button>
-                </div>
-                <button onclick="core.focusNow()" class="neo-glass w-12 h-12 rounded-2xl flex items-center justify-center text-xl">🎯</button>
+            <div class="flex gap-2">
+                <button onclick="core.importTrigger()" class="panel w-12 h-12 flex items-center justify-center text-xl shadow-md">📥</button>
+                <button onclick="core.focusNow()" class="panel w-12 h-12 flex items-center justify-center text-xl shadow-md">🎯</button>
             </div>
+        </header>
 
-            <div class="pointer-events-auto flex justify-center pb-4">
-                <div class="neo-glass px-10 py-5 rounded-[40px] flex items-center gap-8 shadow-2xl">
-                    <div class="flex flex-col">
-                        <span class="text-[9px] font-bold text-gray-400 uppercase">Щільність часу</span>
-                        <input type="range" id="zoom" min="10" max="40" value="22" class="w-40 accent-blue-600" oninput="core.refresh()">
-                    </div>
-                    <div class="h-8 w-[1px] bg-gray-100"></div>
-                    <button onclick="core.openAdd()" class="text-sm font-bold text-blue-600 hover:scale-105 transition">+ НОВА ІНВАРІАНТА</button>
+        <div class="mt-4 flex-1 overflow-y-auto space-y-2 pointer-events-auto no-scrollbar max-w-sm" id="main-feed"></div>
+
+        <footer class="mt-auto pointer-events-auto">
+            <div class="panel p-6 shadow-2xl space-y-4 max-w-lg mx-auto mb-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-400">МАСШТАБ СПІРАЛІ</span>
+                    <span id="zoom-val" class="text-[10px] font-bold">1.0x</span>
                 </div>
+                <input type="range" id="time-zoom" min="5" max="50" value="20" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="core.refresh()">
+                <button onclick="core.openEditor()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition">Створити нову подію</button>
             </div>
-        </main>
+        </footer>
     </div>
 
-    <input type="file" id="ics-upload" class="hidden" accept=".ics">
+    <div id="editor-ui" class="fixed inset-0 z-50 pointer-events-none flex items-end justify-center">
+        <div class="drawer pointer-events-auto panel w-full max-w-md p-6 rounded-b-none space-y-4 shadow-[0_-20px_50px_rgba(0,0,0,0.1)]">
+            <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-2" onclick="core.closeEditor()"></div>
+            <input id="in-title" type="text" placeholder="Назва події" class="w-full text-xl font-bold border-none outline-none focus:ring-0">
+            <div class="grid grid-cols-2 gap-3">
+                <input id="in-start" type="datetime-local" class="bg-gray-50 p-3 rounded-xl text-sm">
+                <input id="in-end" type="datetime-local" class="bg-gray-50 p-3 rounded-xl text-sm">
+            </div>
+            <div class="flex gap-2">
+                <button id="del-btn" onclick="core.deleteEvent()" class="hidden flex-1 bg-red-50 text-red-500 py-4 rounded-xl font-bold">Видалити</button>
+                <button onclick="core.saveEvent()" class="flex-[2] bg-blue-600 text-white py-4 rounded-xl font-bold">Зберегти зміни</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="ics-hidden" class="hidden" accept=".ics">
 
     <script>
         const core = {
             events: [],
-            mode: 'week',
-            
+            editingId: null,
+
             init() {
                 this.setupThree();
                 this.load();
                 this.refresh();
                 this.animate();
-                this.updateDateUI();
-                document.getElementById('ics-upload').addEventListener('change', (e) => this.handleICS(e));
+                setInterval(() => this.updateClock(), 1000);
+                document.getElementById('ics-hidden').addEventListener('change', (e) => this.handleICS(e));
+                
+                // РЕАЛЬНА ВЗАЄМОДІЯ: клік по спіралі
+                this.renderer.domElement.addEventListener('pointerdown', (e) => this.onRaycast(e));
             },
 
             setupThree() {
                 this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 3000);
+                this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
                 this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.setPixelRatio(window.devicePixelRatio);
                 document.getElementById('canvas-container').appendChild(this.renderer.domElement);
                 
                 this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
                 this.controls.enableDamping = true;
                 this.camera.position.set(60, 40, 60);
 
-                const sun = new THREE.DirectionalLight(0xffffff, 1);
-                sun.position.set(10, 50, 10);
-                this.scene.add(new THREE.AmbientLight(0xffffff, 0.7), sun);
+                const light = new THREE.DirectionalLight(0xffffff, 1);
+                light.position.set(10, 50, 10);
+                this.scene.add(new THREE.AmbientLight(0xffffff, 0.8), light);
             },
 
-            // Архітектурно-коректний розрахунок спіралі (на основі PDF-аналізу)
             getPos(time) {
-                const dayMs = 86400000;
                 const now = new Date();
-                const anchor = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-                const diff = (time - anchor) / dayMs;
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                const diff = (time - startOfDay) / 86400000;
                 
-                const radius = parseFloat(document.getElementById('zoom').value);
+                const radius = parseFloat(document.getElementById('time-zoom').value);
                 const angle = diff * Math.PI * 2;
-                return new THREE.Vector3(
-                    Math.cos(angle) * radius,
-                    diff * 18, // Вертикальний прогрес (вісь Z часу)
-                    Math.sin(angle) * radius
-                );
+                return new THREE.Vector3(Math.cos(angle)*radius, diff * 15, Math.sin(angle)*radius);
             },
 
             refresh() {
                 while(this.scene.children.length > 2) this.scene.remove(this.scene.children[this.scene.children.length-1]);
-                const list = document.getElementById('google-list');
-                list.innerHTML = '';
+                const feed = document.getElementById('main-feed');
+                feed.innerHTML = '';
+                
+                document.getElementById('zoom-val').innerText = (parseFloat(document.getElementById('time-zoom').value)/20).toFixed(1) + "x";
 
-                // Рендер часових орієнтирів (дні)
-                const start = Date.now() - 86400000;
-                for(let i=0; i<8; i++) {
-                    const t = start + i * 86400000;
-                    const p = this.getPos(t);
-                    const ring = new THREE.Mesh(
-                        new THREE.TorusGeometry(parseFloat(document.getElementById('zoom').value), 0.04, 8, 100),
-                        new THREE.MeshBasicMaterial({ color: 0xe2e8f0 })
-                    );
-                    ring.position.y = p.y;
-                    ring.rotation.x = Math.PI / 2;
-                    this.scene.add(ring);
-                }
+                // Рендер фонової спіралі (сітка часу)
+                const pts = [];
+                const startT = Date.now() - 86400000;
+                for(let i=0; i<24*7; i++) pts.push(this.getPos(startT + i * 3600000));
+                this.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color: 0x000000, opacity: 0.05, transparent: true})));
 
-                // Рендер подій та списку
-                this.events.sort((a,b) => a.start - b.start).forEach(ev => {
+                // Рендер реальних подій
+                this.events.forEach(ev => {
                     this.drawEvent(ev);
-                    this.addToList(ev);
+                    this.addToFeed(ev);
                 });
 
                 // Маркер "Зараз"
                 const nowPos = this.getPos(Date.now());
-                const nowGeo = new THREE.SphereGeometry(0.8, 32, 32);
-                const nowMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6 });
-                const marker = new THREE.Mesh(nowGeo, nowMat);
-                marker.position.copy(nowPos);
-                this.scene.add(marker);
+                const nowPin = new THREE.Mesh(new THREE.SphereGeometry(1), new THREE.MeshPhongMaterial({color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 0.5}));
+                nowPin.position.copy(nowPos);
+                this.scene.add(nowPin);
             },
 
             drawEvent(ev) {
                 const curvePts = [];
                 for(let i=0; i<=20; i++) curvePts.push(this.getPos(ev.start + (ev.end - ev.start)*(i/20)));
-                const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 32, 0.7, 8, false);
-                const mesh = new THREE.Mesh(tube, new THREE.MeshPhongMaterial({ color: ev.color || '#3b82f6' }));
+                const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 40, 0.8, 12, false);
+                const mesh = new THREE.Mesh(tube, new THREE.MeshPhongMaterial({color: ev.color || '#3b82f6'}));
+                mesh.userData = { id: ev.id };
                 this.scene.add(mesh);
             },
 
-            addToList(ev) {
-                const item = document.createElement('div');
-                item.className = 'sidebar-event p-4 neo-glass';
-                item.style.borderLeft = `4px solid ${ev.color || '#3b82f6'}`;
-                const t = new Date(ev.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                item.innerHTML = `
-                    <div class="text-[10px] font-bold text-blue-500 mb-1">${t}</div>
-                    <div class="text-sm font-bold truncate">${ev.title}</div>
-                    <div class="text-[9px] text-gray-400 mt-2 flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full bg-green-400"></span> GOOGLE CALENDAR
-                    </div>
-                `;
-                document.getElementById('google-list').appendChild(item);
+            addToFeed(ev) {
+                const card = document.createElement('div');
+                card.className = 'panel p-4 event-card';
+                card.style.borderLeftColor = ev.color;
+                const time = new Date(ev.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                card.innerHTML = `<div class="text-[10px] font-bold text-blue-500">${time}</div><div class="text-sm font-bold">${ev.title}</div>`;
+                card.onclick = () => this.openEditor(ev.id);
+                document.getElementById('main-feed').appendChild(card);
+            },
+
+            // РОБОТА З ДАНИМИ (CRUD)
+            saveEvent() {
+                const title = document.getElementById('in-title').value || "Без назви";
+                const start = new Date(document.getElementById('in-start').value).getTime();
+                const end = new Date(document.getElementById('in-end').value).getTime();
+                
+                if(!start || !end) return alert("Оберіть час!");
+
+                const newEv = { id: this.editingId || Date.now(), title, start, end, color: this.getCategoryColor(title) };
+                
+                if(this.editingId) this.events = this.events.filter(e => e.id !== this.editingId);
+                this.events.push(newEv);
+                this.save(); this.refresh(); this.closeEditor();
+            },
+
+            deleteEvent() {
+                this.events = this.events.filter(e => e.id !== this.editingId);
+                this.save(); this.refresh(); this.closeEditor();
+            },
+
+            getCategoryColor(title) {
+                const t = title.toLowerCase();
+                if(t.includes('work')) return '#f97316';
+                if(t.includes('analytica')) return '#3b82f6';
+                if(t.includes('meds')) return '#ef4444';
+                return '#64748b';
+            },
+
+            // UI ІНТЕРАКЦІЯ
+            onRaycast(e) {
+                const mouse = new THREE.Vector2((e.clientX/window.innerWidth)*2-1, -(e.clientY/window.innerHeight)*2+1);
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(mouse, this.camera);
+                const hits = raycaster.intersectObjects(this.scene.children);
+                const hit = hits.find(h => h.object.userData.id);
+                if(hit) this.openEditor(hit.object.userData.id);
+            },
+
+            openEditor(id = null) {
+                this.editingId = id;
+                const ui = document.getElementById('editor-ui');
+                const delBtn = document.getElementById('del-btn');
+                
+                if(id) {
+                    const ev = this.events.find(e => e.id === id);
+                    document.getElementById('in-title').value = ev.title;
+                    document.getElementById('in-start').value = new Date(ev.start - (new Date().getTimezoneOffset()*60000)).toISOString().slice(0,16);
+                    document.getElementById('in-end').value = new Date(ev.end - (new Date().getTimezoneOffset()*60000)).toISOString().slice(0,16);
+                    delBtn.classList.remove('hidden');
+                } else {
+                    document.getElementById('in-title').value = '';
+                    delBtn.classList.add('hidden');
+                }
+                
+                ui.classList.remove('pointer-events-none');
+                ui.querySelector('.drawer').classList.add('active');
+            },
+
+            closeEditor() {
+                const ui = document.getElementById('editor-ui');
+                ui.querySelector('.drawer').classList.remove('active');
+                setTimeout(() => ui.classList.add('pointer-events-none'), 400);
             },
 
             handleICS(e) {
@@ -175,46 +223,36 @@
                 reader.onload = (f) => {
                     const blocks = f.target.result.split('BEGIN:VEVENT');
                     blocks.shift();
-                    const imported = blocks.map(b => {
+                    this.events = blocks.map(b => {
                         const title = (b.match(/SUMMARY:(.*)/) || [0,"Подія"])[1].trim();
-                        const start = this.parseICSDate(b.match(/DTSTART[:;](.*)/));
-                        const end = this.parseICSDate(b.match(/DTEND[:;](.*)/));
-                        return { title, start, end, color: this.getAutoColor(title) };
+                        const start = this.parseDate(b.match(/DTSTART[:;](.*)/));
+                        const end = this.parseDate(b.match(/DTEND[:;](.*)/));
+                        return { id: Math.random(), title, start, end, color: this.getCategoryColor(title) };
                     }).filter(ev => ev.start);
-                    this.events = imported;
                     this.save(); this.refresh(); this.focusNow();
                 };
                 reader.readAsText(e.target.files[0]);
             },
 
-            parseICSDate(m) {
+            parseDate(m) {
                 if(!m) return null;
-                const d = m[1].replace(/[^0-9T]/g, '');
-                return new Date(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}T${d.slice(9,11)}:${d.slice(11,13)}:00`).getTime();
+                const r = m[1].replace(/[^0-9T]/g, '');
+                return new Date(`${r.slice(0,4)}-${r.slice(4,6)}-${r.slice(6,8)}T${r.slice(9,11)}:${r.slice(11,13)}:00`).getTime();
             },
 
-            getAutoColor(title) {
-                const t = title.toLowerCase();
-                if(t.includes('work')) return '#f97316';
-                if(t.includes('meds')) return '#ef4444';
-                if(t.includes('analytica')) return '#3b82f6';
-                return '#64748b';
-            },
-
-            updateDateUI() {
-                const n = new Date();
-                document.getElementById('current-date').innerText = n.toLocaleDateString('uk-UA', { day:'numeric', month:'long', weekday:'long' });
+            updateClock() {
+                document.getElementById('clock-display').innerText = new Date().toLocaleTimeString('uk-UA') + " • " + new Date().toLocaleDateString('uk-UA', {day:'numeric', month:'short'});
             },
 
             focusNow() {
                 const target = this.getPos(Date.now());
                 this.controls.target.lerp(target, 0.1);
-                this.camera.position.lerp(new THREE.Vector3(target.x+50, target.y+30, target.z+50), 0.1);
+                this.camera.position.lerp(new THREE.Vector3(target.x+50, target.y+20, target.z+50), 0.1);
             },
 
-            triggerSync() { document.getElementById('ics-upload').click(); },
-            save() { localStorage.setItem('flip_v17', JSON.stringify(this.events)); },
-            load() { const d = localStorage.getItem('flip_v17'); if(d) this.events = JSON.parse(d); },
+            importTrigger() { document.getElementById('ics-hidden').click(); },
+            save() { localStorage.setItem('flip_v18', JSON.stringify(this.events)); },
+            load() { const d = localStorage.getItem('flip_v18'); if(d) this.events = JSON.parse(d); },
             animate() { requestAnimationFrame(() => this.animate()); this.controls.update(); this.renderer.render(this.scene, this.camera); }
         };
 
