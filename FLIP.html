@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLIP! v7.3 Pro</title>
+    <title>FLIP! v7.4 Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,186 +13,241 @@
         #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #ui-layer { position: relative; z-index: 10; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; }
         .interactive { pointer-events: auto; }
-        .flip-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(0,0,0,0.05); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); }
-        .btn-main { background: #2563eb; color: white; transition: all 0.2s; font-weight: 800; }
-        .btn-main:active { transform: scale(0.96); }
-        input, select { background: #f1f5f9; border-radius: 10px; padding: 6px 10px; border: 1px solid #e2e8f0; width: 100%; font-size: 12px; font-weight: 600; }
-        label { font-[10px] font-bold text-slate-400 uppercase tracking-tighter; margin-left: 4px; }
+        .flip-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.06); }
+        .btn-blue { background: #2563eb; color: white; font-weight: 800; transition: 0.2s; }
+        .btn-blue:active { transform: scale(0.96); }
+        input, select { background: #f1f5f9; border-radius: 10px; padding: 8px; border: 1px solid #e2e8f0; font-size: 12px; }
+        .day-btn { width: 30px; height: 30px; border-radius: 8px; font-size: 10px; font-weight: bold; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .day-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
     </style>
 </head>
 <body>
 
     <div id="canvas-container"></div>
 
-    <div id="ui-layer" class="p-3 md:p-6 space-y-3">
-        <div class="flip-card p-4 w-full md:w-[280px] interactive">
+    <div id="ui-layer" class="p-3 space-y-3">
+        <div class="flip-card p-4 w-full md:w-[300px] interactive">
             <div class="flex justify-between items-center mb-3">
-                <h1 class="text-xl font-900 tracking-tight text-slate-900 leading-none">FLIP<span class="text-blue-600">!</span></h1>
-                <div id="live-clock" class="text-sm font-bold bg-slate-100 px-3 py-1 rounded-full tabular-nums">00:00</div>
+                <h1 class="text-xl font-900 text-slate-900 leading-none">FLIP<span class="text-blue-600">!</span></h1>
+                <div id="live-clock" class="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full tabular-nums">06:00</div>
             </div>
 
-            <button id="open-modal-btn" class="btn-main w-full py-3 rounded-xl text-[10px] uppercase tracking-widest mb-4">+ Нова подія</button>
+            <button id="add-btn" class="btn-blue w-full py-3 rounded-xl text-[10px] uppercase tracking-widest">+ Нова подія</button>
             
-            <div class="space-y-3 border-t pt-3">
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label>Висота (Y)</label>
-                        <input id="cfg-height" type="number" value="6" step="0.5">
-                    </div>
-                    <div>
-                        <label>Днів</label>
-                        <input id="cfg-days" type="number" value="14">
-                    </div>
-                </div>
+            <div class="grid grid-cols-2 gap-2 mt-3 border-t pt-3">
+                <div><label class="text-[9px] font-bold text-slate-400 uppercase">Висота (Y)</label><input id="cfg-height" type="number" value="6"></div>
+                <div><label class="text-[9px] font-bold text-slate-400 uppercase">Днів</label><input id="cfg-days" type="number" value="14"></div>
             </div>
-        </div>
 
-        <div class="hidden md:flex flip-card p-4 w-[280px] flex-col interactive flex-1 overflow-hidden">
-            <h3 class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3">Розклад</h3>
-            <div id="event-list" class="overflow-y-auto space-y-2"></div>
+            <div class="mt-4 border-t pt-2">
+                <button id="toggle-list" class="w-full flex justify-between items-center py-1">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Мій Розклад</span>
+                    <span id="list-arrow" class="text-slate-400 transition-transform">▼</span>
+                </button>
+                <div id="event-list" class="hidden mt-2 space-y-2 max-h-[200px] overflow-y-auto"></div>
+            </div>
         </div>
     </div>
 
     <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-xs p-6 rounded-[24px] shadow-2xl interactive">
-            <h2 class="text-lg font-bold mb-4">Деталі події</h2>
-            <div class="space-y-3">
-                <input id="ev-name" type="text" placeholder="Що плануємо?">
-                <div class="grid grid-cols-1 gap-2">
-                    <input id="ev-start" type="datetime-local">
-                    <input id="ev-end" type="datetime-local">
+        <div class="bg-white w-full max-w-sm p-6 rounded-[24px] shadow-2xl interactive">
+            <h2 id="modal-title" class="text-lg font-bold mb-4 text-slate-900">Подія</h2>
+            <div class="space-y-4">
+                <input id="ev-name" type="text" placeholder="Назва події" class="w-full">
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="ev-start" type="datetime-local" class="w-full">
+                    <input id="ev-end" type="datetime-local" class="w-full">
                 </div>
+                
+                <div>
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Повторювати щотижня у:</label>
+                    <div class="flex justify-between mt-1" id="days-selector">
+                        <div class="day-btn" data-day="1">Пн</div>
+                        <div class="day-btn" data-day="2">Вт</div>
+                        <div class="day-btn" data-day="3">Ср</div>
+                        <div class="day-btn" data-day="4">Чт</div>
+                        <div class="day-btn" data-day="5">Пт</div>
+                        <div class="day-btn" data-day="6">Сб</div>
+                        <div class="day-btn" data-day="0">Нд</div>
+                    </div>
+                </div>
+
                 <div class="flex gap-2">
                     <input id="ev-color" type="color" value="#2563eb" class="h-10 w-16 p-1">
-                    <button id="save-btn" class="btn-main flex-1 rounded-lg text-[10px] uppercase">Зберегти</button>
+                    <button id="save-btn" class="btn-blue flex-1 rounded-lg text-[10px] uppercase">Зберегти</button>
+                    <button id="del-btn" class="hidden bg-red-50 text-red-500 px-4 rounded-lg text-[10px] font-bold uppercase">X</button>
                 </div>
-                <button id="close-modal-btn" class="w-full text-slate-400 font-bold text-[9px] uppercase pt-1">Закрити</button>
+                <button onclick="closeModal()" class="w-full text-slate-400 font-bold text-[9px] uppercase">Скасувати</button>
             </div>
         </div>
     </div>
 
     <script>
-        let events = JSON.parse(localStorage.getItem('flip_v73')) || [];
+        let events = JSON.parse(localStorage.getItem('flip_v74')) || [];
+        let editingId = null;
         const CONFIG = { radius: 12, heightStep: 6, days: 14, baseDate: new Date().setHours(0,0,0,0) };
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
-
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // THREE.JS SETUP
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
         camera.position.set(35, 35, 35);
-
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
-
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
-        const mainSpiralGroup = new THREE.Group();
+        const mainGroup = new THREE.Group();
         const eventGroup = new THREE.Group();
-        scene.add(mainSpiralGroup, eventGroup);
+        scene.add(mainGroup, eventGroup);
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
 
         function getPos(timeMs) {
             const hrs = (timeMs - CONFIG.baseDate) / 3600000;
             const angle = (hrs / 24) * Math.PI * 2;
             const y = (hrs / 24) * CONFIG.heightStep;
-            return new THREE.Vector3(Math.cos(angle) * CONFIG.radius, y, Math.sin(angle) * CONFIG.radius);
+            return new THREE.Vector3(Math.cos(angle)*CONFIG.radius, y, Math.sin(angle)*CONFIG.radius);
         }
 
         function buildSpiral() {
-            mainSpiralGroup.clear();
+            mainGroup.clear();
+            const pts = [];
+            for(let h=0; h <= CONFIG.days*24; h += 0.2) pts.push(getPos(CONFIG.baseDate + h*3600000));
+            mainGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0x000, opacity:0.05, transparent:true})));
             
-            // 1. Основна лінія
-            const linePts = [];
-            for(let h=0; h <= CONFIG.days * 24; h += 0.2) linePts.push(getPos(CONFIG.baseDate + h * 3600000));
-            const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(linePts), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.05 }));
-            mainSpiralGroup.add(line);
-
-            // 2. Точки-години (24 на виток)
-            const dotGeo = new THREE.SphereGeometry(0.1, 8, 8);
-            const dotMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2 });
-            for(let h=0; h <= CONFIG.days * 24; h++) {
-                const dot = new THREE.Mesh(dotGeo, dotMat);
-                dot.position.copy(getPos(CONFIG.baseDate + h * 3600000));
-                mainSpiralGroup.add(dot);
+            for(let h=0; h <= CONFIG.days*24; h++) {
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({color:0x000, opacity:0.2, transparent:true}));
+                dot.position.copy(getPos(CONFIG.baseDate + h*3600000));
+                mainGroup.add(dot);
             }
         }
-
-        const nowMarker = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 32), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
-        scene.add(nowMarker);
 
         function update3D() {
             eventGroup.clear();
             events.forEach(ev => {
-                const curvePts = [];
-                for(let i=0; i<=10; i++) curvePts.push(getPos(ev.start + (ev.end - ev.start) * (i/10)));
-                const tube = new THREE.Mesh(
-                    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 20, 0.35, 8, false),
-                    new THREE.MeshBasicMaterial({ color: ev.color })
-                );
-                eventGroup.add(tube);
+                const duration = ev.end - ev.start;
+                // Генеруємо копії для циклічних подій
+                for(let d=0; d < CONFIG.days; d++) {
+                    const currentStart = new Date(ev.start);
+                    currentStart.setDate(currentStart.getDate() + d);
+                    
+                    // Перевірка дня тижня
+                    if(ev.repeat.length > 0 && !ev.repeat.includes(currentStart.getDay())) continue;
+                    if(ev.repeat.length === 0 && d > 0) break; // Якщо не циклічна
+
+                    const drawStart = currentStart.getTime();
+                    const drawEnd = drawStart + duration;
+
+                    const curvePts = [];
+                    for(let i=0; i<=10; i++) curvePts.push(getPos(drawStart + (drawEnd - drawStart)*(i/10)));
+                    const tube = new THREE.Mesh(
+                        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 12, 0.4, 8),
+                        new THREE.MeshBasicMaterial({ color: ev.color })
+                    );
+                    tube.userData = { id: ev.id };
+                    eventGroup.add(tube);
+                }
             });
             renderList();
         }
 
-        // --- УПРАВЛІННЯ ---
-        document.getElementById('cfg-height').oninput = (e) => { CONFIG.heightStep = parseFloat(e.target.value); buildSpiral(); update3D(); };
-        document.getElementById('cfg-days').oninput = (e) => { CONFIG.days = parseInt(e.target.value); buildSpiral(); update3D(); };
-
+        // UI & INTERACTION
         const modal = document.getElementById('modal');
-        document.getElementById('open-modal-btn').onclick = () => {
-            document.getElementById('ev-start').value = new Date().toISOString().slice(0,16);
-            document.getElementById('ev-end').value = new Date(Date.now()+3600000).toISOString().slice(0,16);
-            modal.classList.remove('hidden');
-        };
-        document.getElementById('close-modal-btn').onclick = () => modal.classList.add('hidden');
+        const listDiv = document.getElementById('event-list');
         
+        document.getElementById('add-btn').onclick = () => openModal();
+        document.getElementById('toggle-list').onclick = () => {
+            listDiv.classList.toggle('hidden');
+            document.getElementById('list-arrow').style.transform = listDiv.classList.contains('hidden') ? '' : 'rotate(180deg)';
+        };
+
+        function openModal(id = null) {
+            editingId = id;
+            const ev = events.find(e => e.id === id) || { name:'', start:Date.now(), end:Date.now()+3600000, color:'#2563eb', repeat:[] };
+            
+            document.getElementById('ev-name').value = ev.name;
+            document.getElementById('ev-start').value = new Date(ev.start).toISOString().slice(0,16);
+            document.getElementById('ev-end').value = new Date(ev.end).toISOString().slice(0,16);
+            document.getElementById('ev-color').value = ev.color;
+            document.getElementById('del-btn').classList.toggle('hidden', !id);
+            
+            // Оновити кнопки днів
+            document.querySelectorAll('.day-btn').forEach(btn => {
+                btn.classList.toggle('active', ev.repeat.includes(parseInt(btn.dataset.day)));
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        document.querySelectorAll('.day-btn').forEach(btn => {
+            btn.onclick = () => btn.classList.toggle('active');
+        });
+
         document.getElementById('save-btn').onclick = () => {
-            events.push({
-                id: Date.now(),
-                name: document.getElementById('ev-name').value || 'План',
+            const repeat = Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day));
+            const newEv = {
+                id: editingId || Date.now(),
+                name: document.getElementById('ev-name').value || 'Нова подія',
                 start: new Date(document.getElementById('ev-start').value).getTime(),
                 end: new Date(document.getElementById('ev-end').value).getTime(),
-                color: document.getElementById('ev-color').value
-            });
-            localStorage.setItem('flip_v73', JSON.stringify(events));
-            update3D(); modal.classList.add('hidden');
+                color: document.getElementById('ev-color').value,
+                repeat: repeat
+            };
+            
+            if(editingId) events = events.map(e => e.id === editingId ? newEv : e);
+            else events.push(newEv);
+            
+            saveAndRefresh();
+            closeModal();
         };
 
+        document.getElementById('del-btn').onclick = () => {
+            events = events.filter(e => e.id !== editingId);
+            saveAndRefresh(); closeModal();
+        };
+
+        function saveAndRefresh() {
+            localStorage.setItem('flip_v74', JSON.stringify(events));
+            update3D();
+        }
+
+        function closeModal() { modal.classList.add('hidden'); }
+
         function renderList() {
-            const list = document.getElementById('event-list');
-            if(!list) return;
-            list.innerHTML = events.slice(-5).map(ev => `
-                <div class="p-2 bg-slate-50 rounded-lg flex items-center gap-2 border border-slate-100">
-                    <div class="w-1 h-4 rounded-full" style="background:${ev.color}"></div>
-                    <span class="text-[10px] font-bold text-slate-700 truncate">${ev.name}</span>
+            listDiv.innerHTML = events.map(ev => `
+                <div onclick="openModal(${ev.id})" class="p-2 bg-slate-50 rounded-lg flex items-center justify-between border border-slate-100 cursor-pointer hover:bg-white">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1 h-4 rounded-full" style="background:${ev.color}"></div>
+                        <span class="text-[10px] font-bold text-slate-700">${ev.name}</span>
+                    </div>
+                    <span class="text-[8px] text-slate-400 font-bold">${ev.repeat.length > 0 ? '⟳' : ''}</span>
                 </div>
             `).join('');
         }
 
+        // Raycasting (Клік на спіраль)
+        window.addEventListener('click', (e) => {
+            if(e.target.id !== 'canvas-container' && e.target.tagName !== 'CANVAS') return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(eventGroup.children);
+            if(intersects.length > 0) openModal(intersects[0].object.userData.id);
+        });
+
         function animate() {
             requestAnimationFrame(animate);
-            const now = Date.now();
-            nowMarker.position.copy(getPos(now));
             document.getElementById('live-clock').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             controls.update();
             renderer.render(scene, camera);
         }
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        document.getElementById('cfg-height').oninput = (e) => { CONFIG.heightStep = parseFloat(e.target.value); buildSpiral(); update3D(); };
+        document.getElementById('cfg-days').oninput = (e) => { CONFIG.days = parseInt(e.target.value); buildSpiral(); update3D(); };
 
-        buildSpiral();
-        update3D();
-        animate();
-        
-        // Фокус на старті
-        const p = getPos(Date.now());
-        controls.target.copy(p);
+        buildSpiral(); update3D(); animate();
     </script>
 </body>
 </html>
