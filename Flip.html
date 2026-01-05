@@ -3,28 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLIP! v8.1.1</title>
+    <title>FLIP! v8.2 Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f8fafc; font-family: 'Outfit', sans-serif; display: flex; flex-direction: column; }
-        
         #ui-layer { flex: 0 0 auto; z-index: 10; padding: 10px; }
         #canvas-container { flex: 1 1 auto; position: relative; background: white; border-top: 1px solid #e2e8f0; }
-
         .interactive { pointer-events: auto; }
         .flip-card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        
         .btn-circle { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; background: #f1f5f9; color: #64748b; font-weight: bold; }
-        .btn-circle:hover { background: #e2e8f0; color: #1e293b; }
-        
-        .day-btn { width: 24px; height: 24px; border-radius: 6px; font-size: 9px; font-weight: bold; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .day-btn { width: 24px; height: 24px; border-radius: 6px; font-size: 8px; font-weight: bold; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .day-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
-        
         details summary { list-style: none; cursor: pointer; outline: none; }
-        details summary::-webkit-details-marker { display: none; }
     </style>
 </head>
 <body>
@@ -37,64 +30,47 @@
                     <span id="live-date" class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"></span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="focusToday()" class="text-[14px] text-slate-400 hover:text-blue-600 transition-colors" title="До сьогодні">◎</button>
+                    <button onclick="focusToday()" class="text-[14px] text-slate-400 hover:text-blue-600">◎</button>
                     <div id="live-clock" class="text-[10px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md tabular-nums">00:00</div>
                 </div>
             </div>
 
             <div class="flex items-center gap-2">
-                <label class="btn-circle cursor-pointer" title="Імпорт подій">
+                <label class="btn-circle cursor-pointer" title="Імпорт (↓)">
                     <span class="text-lg">↓</span>
-                    <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
+                    <input type="file" class="hidden" accept=".json" onchange="importData(event)">
                 </label>
-                
-                <button onclick="openModal()" class="flex-1 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-blue-200 active:scale-95 transition-all">
-                    + Створити подію
-                </button>
-
-                <button onclick="exportData()" class="btn-circle" title="Експорт (Зберегти файл)">
+                <button onclick="openModal()" class="flex-1 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-blue-200">+ Створити подію</button>
+                <button onclick="exportData()" class="btn-circle" title="Експорт (↑)">
                     <span class="text-lg">↑</span>
                 </button>
             </div>
 
             <details class="group">
-                <summary class="flex justify-between items-center text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                    Налаштування рендеру <span class="group-open:rotate-180 transition-transform">▼</span>
-                </summary>
+                <summary class="flex justify-between items-center text-[8px] font-bold text-slate-400 uppercase">Налаштування рендеру ▼</summary>
                 <div class="pt-2 space-y-2">
                     <div class="grid grid-cols-2 gap-2">
-                        <div class="flex flex-col">
-                            <span class="text-[7px] text-slate-400 mb-0.5">ВІД</span>
-                            <input id="cfg-from" type="date" class="bg-slate-50 border p-1 rounded-md text-[10px]">
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-[7px] text-slate-400 mb-0.5">ДО</span>
-                            <input id="cfg-to" type="date" class="bg-slate-50 border p-1 rounded-md text-[10px]">
-                        </div>
+                        <input id="cfg-from" type="date" class="bg-slate-50 border p-1 rounded-md text-[10px]">
+                        <input id="cfg-to" type="date" class="bg-slate-50 border p-1 rounded-md text-[10px]">
                     </div>
-                    <div class="flex flex-col">
-                        <span class="text-[7px] text-slate-400 mb-0.5">ВИСОТА ВИТКА</span>
-                        <input id="cfg-height" type="range" min="1" max="15" step="0.5" value="6" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer">
-                    </div>
+                    <input id="cfg-height" type="range" min="1" max="15" step="0.5" value="6" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer">
                 </div>
             </details>
 
-            <details class="group border-t pt-2">
-                <summary class="flex justify-between items-center text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                    Мій розклад <span class="group-open:rotate-180 transition-transform">▼</span>
-                </summary>
-                <div id="event-list" class="mt-2 space-y-1.5 max-h-[120px] overflow-y-auto pr-1"></div>
+            <details class="group border-t pt-2" open>
+                <summary class="flex justify-between items-center text-[8px] font-bold text-slate-400 uppercase">Мій розклад ▼</summary>
+                <div id="event-list" class="mt-2 space-y-1 max-h-[160px] overflow-y-auto pr-1"></div>
             </details>
         </div>
     </div>
 
-    <div id="canvas-container"></div>
+    <div id="canvas-container" class="interactive"></div>
 
     <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
         <div class="bg-white w-full max-w-[280px] p-5 rounded-[20px] shadow-2xl interactive">
             <h2 class="text-sm font-black mb-3 text-slate-800">Подія</h2>
             <div class="space-y-3">
-                <input id="ev-name" type="text" placeholder="Що плануємо?" class="w-full bg-slate-50 border p-2 rounded-lg text-xs outline-none focus:border-blue-400">
+                <input id="ev-name" type="text" placeholder="Назва" class="w-full bg-slate-50 border p-2 rounded-lg text-xs outline-none focus:border-blue-400">
                 <div class="grid grid-cols-2 gap-2">
                     <input id="ev-start" type="datetime-local" class="bg-slate-50 border p-1.5 rounded-lg text-[10px]">
                     <input id="ev-end" type="datetime-local" class="bg-slate-50 border p-1.5 rounded-lg text-[10px]">
@@ -104,7 +80,7 @@
                     <div class="day-btn" data-day="4">Чт</div><div class="day-btn" data-day="5">Пт</div><div class="day-btn" data-day="6">Сб</div><div class="day-btn" data-day="0">Нд</div>
                 </div>
                 <div class="flex gap-2">
-                    <input id="ev-color" type="color" value="#2563eb" class="w-10 h-8 border-none p-0 bg-transparent cursor-pointer">
+                    <input id="ev-color" type="color" value="#2563eb" class="w-10 h-8 cursor-pointer">
                     <button id="pre-save-btn" class="flex-1 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase">Зберегти</button>
                     <button id="del-btn" class="hidden bg-red-50 text-red-500 px-3 rounded-lg font-bold">✕</button>
                 </div>
@@ -123,17 +99,15 @@
         document.getElementById('cfg-from').value = dFrom.toISOString().split('T')[0];
         document.getElementById('cfg-to').value = dTo.toISOString().split('T')[0];
 
-        // Three.js Setup
+        // Three.js
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff);
         const camera = new THREE.PerspectiveCamera(40, container.clientWidth/container.clientHeight, 0.1, 1000);
         camera.position.set(30, 30, 30);
-        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
-        
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
@@ -153,12 +127,6 @@
             return new THREE.Vector3(Math.cos(angle)*10, y, Math.sin(angle)*10);
         }
 
-        function focusToday() {
-            const pos = getPos(Date.now());
-            controls.target.copy(pos);
-            camera.position.set(pos.x + 20, pos.y + 20, pos.z + 20);
-        }
-
         function buildSpiral() {
             mainGroup.clear();
             const from = new Date(document.getElementById('cfg-from').value).getTime();
@@ -173,9 +141,11 @@
             eventGroup.clear();
             events.forEach(ev => {
                 const curvePts = [];
-                for(let i=0; i<=10; i++) curvePts.push(getPos(ev.start + (ev.end - ev.start)*(i/10)));
+                const steps = 12;
+                for(let i=0; i<=steps; i++) curvePts.push(getPos(ev.start + (ev.end - ev.start)*(i/steps)));
+                const curve = new THREE.CatmullRomCurve3(curvePts);
                 const tube = new THREE.Mesh(
-                    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 12, 0.45, 8),
+                    new THREE.TubeGeometry(curve, 20, 0.5, 8, false),
                     new THREE.MeshBasicMaterial({ color: ev.color })
                 );
                 tube.userData = { id: ev.id };
@@ -184,76 +154,89 @@
             renderList();
         }
 
-        window.exportData = () => {
-            const data = JSON.stringify(events);
-            const blob = new Blob([data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `flip_export_${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
-        };
-
-        window.importData = (e) => {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                try {
-                    const imported = JSON.parse(ev.target.result);
-                    if(Array.isArray(imported)) { events = imported; save(); }
-                } catch(err) { alert("Помилка файлу"); }
-            };
-            reader.readAsText(e.target.files[0]);
-        };
-
-        function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); buildSpiral(); update3D(); }
-
         function renderList() {
-            document.getElementById('event-list').innerHTML = events.slice(0, 15).map(ev => `
-                <div onclick="openModal(${ev.id})" class="p-2 bg-slate-50 rounded-lg flex items-center justify-between cursor-pointer border border-transparent hover:border-blue-200">
-                    <div class="flex items-center gap-2 overflow-hidden">
-                        <div class="w-1 h-3 rounded-full shrink-0" style="background:${ev.color}"></div>
-                        <span class="text-[9px] font-bold text-slate-700 truncate">${ev.name || 'Без назви'}</span>
-                    </div>
-                    <span class="text-[8px] text-slate-400 font-bold tabular-nums shrink-0">${new Date(ev.start).getHours()}:${new Date(ev.start).getMinutes().toString().padStart(2,'0')}</span>
-                </div>
-            `).join('');
+            const listHtml = [...events]
+                .sort((a, b) => a.start - b.start)
+                .map(ev => {
+                    const startD = new Date(ev.start);
+                    const dateStr = startD.toLocaleDateString('uk-UA', {day:'2-digit', month:'short'});
+                    const timeStr = startD.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                    return `
+                    <div onclick="openModal(${ev.id})" class="p-2 bg-slate-50 rounded-lg flex items-center justify-between cursor-pointer border border-transparent hover:border-blue-200 transition-all">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <div class="w-1 h-3 rounded-full shrink-0" style="background:${ev.color}"></div>
+                            <span class="text-[9px] font-black text-slate-700 truncate">${ev.name || 'План'}</span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="text-[7px] font-bold text-blue-500 uppercase">${dateStr}</span>
+                            <span class="text-[8px] font-bold text-slate-400 tabular-nums">${timeStr}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            document.getElementById('event-list').innerHTML = listHtml;
         }
+
+        // Кліки по спіралі (Raycasting)
+        const raycaster = new THREE.Raycaster();
+        container.addEventListener('click', (e) => {
+            const rect = container.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(eventGroup.children);
+            if (intersects.length > 0) openModal(intersects[0].object.userData.id);
+        });
 
         function openModal(id = null) {
             editingId = id;
-            const ev = events.find(e => e.id === id) || { name:'', start:Date.now(), end:Date.now()+3600000, color:'#2563eb', repeat:[] };
+            const ev = events.find(e => e.id === id) || { 
+                name: '', 
+                start: Math.floor(Date.now()/60000)*60000, 
+                end: Math.floor(Date.now()/60000)*60000 + 3600000, 
+                color: '#2563eb', 
+                repeat: [] 
+            };
             document.getElementById('ev-name').value = ev.name;
-            document.getElementById('ev-start').value = new Date(ev.start).toISOString().slice(0,16);
-            document.getElementById('ev-end').value = new Date(ev.end).toISOString().slice(0,16);
+            document.getElementById('ev-start').value = new Date(ev.start - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            document.getElementById('ev-end').value = new Date(ev.end - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
             document.getElementById('ev-color').value = ev.color;
             document.getElementById('del-btn').classList.toggle('hidden', !id);
             document.querySelectorAll('.day-btn').forEach(btn => btn.classList.toggle('active', (ev.repeat || []).includes(parseInt(btn.dataset.day))));
             document.getElementById('modal').classList.remove('hidden');
         }
 
-        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-
         document.getElementById('pre-save-btn').onclick = () => {
+            const startVal = new Date(document.getElementById('ev-start').value).getTime();
+            const endVal = new Date(document.getElementById('ev-end').value).getTime();
+            const repeat = Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day));
+            
             const data = {
                 id: editingId || Date.now(),
                 name: document.getElementById('ev-name').value,
-                start: new Date(document.getElementById('ev-start').value).getTime(),
-                end: new Date(document.getElementById('ev-end').value).getTime(),
+                start: startVal,
+                end: endVal,
                 color: document.getElementById('ev-color').value,
-                repeat: Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day))
+                repeat
             };
             events = events.filter(e => e.id !== editingId);
             events.push(data);
             save(); closeModal();
         };
 
+        function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); buildSpiral(); update3D(); }
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
         document.getElementById('del-btn').onclick = () => { events = events.filter(e => e.id !== editingId); save(); closeModal(); };
+        window.exportData = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(events)], {type:'application/json'})); a.download = `flip_backup.json`; a.click(); };
+        window.importData = (e) => { const r = new FileReader(); r.onload = (ev) => { events = JSON.parse(ev.target.result); save(); }; r.readAsText(e.target.files[0]); };
+        function focusToday() { const p = getPos(Date.now()); controls.target.copy(p); camera.position.set(p.x+20, p.y+20, p.z+20); }
 
         function animate() {
             requestAnimationFrame(animate);
             const now = new Date();
             nowDisk.position.copy(getPos(now.getTime()));
-            nowDisk.lookAt(getPos(now.getTime() + 500000));
+            nowDisk.lookAt(getPos(now.getTime() + 100000));
             nowDisk.rotateX(Math.PI/2);
             document.getElementById('live-clock').innerText = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             document.getElementById('live-date').innerText = now.toLocaleDateString('uk-UA', {day:'numeric', month:'long'});
@@ -261,16 +244,12 @@
             renderer.render(scene, camera);
         }
 
-        window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        });
-
         document.querySelectorAll('.day-btn').forEach(btn => btn.onclick = () => btn.classList.toggle('active'));
         ['cfg-from', 'cfg-to', 'cfg-height'].forEach(id => document.getElementById(id).oninput = () => { buildSpiral(); update3D(); });
+        window.addEventListener('resize', () => { camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); });
 
         buildSpiral(); update3D(); animate(); focusToday();
     </script>
 </body>
 </html>
+
