@@ -1,70 +1,67 @@
-
 <!DOCTYPE html>
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLIP! v12 Invariant</title>
+    <title>FLIP! v12.1 Aura</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
-        body { margin: 0; background: #050505; color: #fff; font-family: 'Space+Grotesk', sans-serif; overflow: hidden; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .neon-text { text-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
-        input, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 12px; width: 100%; outline: none; transition: 0.3s; }
-        input:focus { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
-        .bottom-sheet { transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1); }
+        body { margin: 0; background: #000; color: #fff; font-family: 'Space+Grotesk', sans-serif; overflow: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .bottom-sheet { transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         .bottom-sheet.active { transform: translateY(0); }
+        input { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; color: white; padding: 14px; outline: none; }
+        .shimmer { background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     </style>
 </head>
 <body>
 
     <div id="canvas-container" class="fixed inset-0"></div>
 
-    <div class="relative z-10 pointer-events-none h-screen flex flex-col justify-between p-6">
+    <div class="relative z-10 pointer-events-none h-screen flex flex-col justify-between p-5">
         <header class="flex justify-between items-start pointer-events-auto">
-            <div>
-                <h1 class="text-3xl font-bold tracking-tighter neon-text">FLIP<span class="text-blue-500">!</span></h1>
-                <p id="clock" class="text-blue-400 font-medium tracking-widest opacity-80 uppercase text-[10px] mt-1"></p>
+            <div class="glass p-3 rounded-2xl">
+                <h1 class="text-xl font-bold tracking-tighter shimmer">FLIP! <span class="text-[10px] text-white/40 uppercase tracking-widest ml-1">v12.1</span></h1>
+                <p id="clock" class="text-[10px] font-medium opacity-60 mt-0.5"></p>
             </div>
-            <div class="flex gap-3">
-                <button onclick="core.importClick()" class="glass w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-white/10 transition">📅</button>
-                <button onclick="core.focusNow()" class="glass w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-white/10 transition">🎯</button>
+            <div class="flex gap-2">
+                <button onclick="core.importClick()" class="glass w-11 h-11 rounded-full flex items-center justify-center text-lg active:scale-90 transition">📅</button>
+                <button onclick="core.focusNow()" class="glass w-11 h-11 rounded-full flex items-center justify-center text-lg active:scale-90 transition">🎯</button>
             </div>
         </header>
 
-        <footer class="flex justify-center pb-4">
-            <button onclick="core.openEditor()" class="pointer-events-auto glass px-10 py-4 rounded-3xl font-bold text-sm tracking-widest hover:scale-105 active:scale-95 transition-all">
-                СТВОРИТИ ІНВАРІАНТУ +
+        <footer class="flex justify-center pb-8">
+            <button onclick="core.openEditor()" class="pointer-events-auto glass px-12 py-4 rounded-full font-bold text-xs tracking-[0.2em] uppercase hover:bg-white/10 active:scale-95 transition-all shadow-2xl">
+                Створити Подію +
             </button>
         </footer>
     </div>
 
     <div id="editor" class="fixed inset-0 z-50 pointer-events-none flex items-end justify-center">
-        <div class="bottom-sheet pointer-events-auto glass w-full max-w-xl p-8 rounded-t-[40px] space-y-6">
-            <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2" onclick="core.closeEditor()"></div>
-            <h2 class="text-2xl font-bold">Нова подія</h2>
+        <div class="bottom-sheet pointer-events-auto glass w-full max-w-lg p-6 rounded-t-[3rem] space-y-5 border-t border-white/20">
+            <div class="w-10 h-1 bg-white/20 rounded-full mx-auto" onclick="core.closeEditor()"></div>
             
-            <input id="ev-title" type="text" placeholder="Що має статися?">
+            <input id="ev-title" type="text" placeholder="Назва події..." class="w-full text-lg">
             
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-2">
-                    <label class="text-[10px] uppercase opacity-50 ml-2">Початок</label>
-                    <input id="ev-start" type="datetime-local">
+            <div class="grid grid-cols-2 gap-3 text-left">
+                <div class="flex flex-col gap-1">
+                    <span class="text-[9px] uppercase opacity-40 ml-2">Початок</span>
+                    <input id="ev-start" type="datetime-local" class="text-xs">
                 </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] uppercase opacity-50 ml-2">Кінець</label>
-                    <input id="ev-end" type="datetime-local">
+                <div class="flex flex-col gap-1">
+                    <span class="text-[9px] uppercase opacity-40 ml-2">Кінець</span>
+                    <input id="ev-end" type="datetime-local" class="text-xs">
                 </div>
             </div>
 
-            <div class="flex justify-between items-center pt-4">
-                <div class="flex gap-2" id="color-dots"></div>
+            <div class="flex justify-between items-center py-2">
+                <div class="flex gap-2.5" id="color-dots"></div>
                 <div class="flex gap-2">
-                    <button id="del-btn" onclick="core.deleteEvent()" class="hidden bg-red-500/20 text-red-500 px-6 py-3 rounded-xl font-bold">Видалити</button>
-                    <button onclick="core.saveEvent()" class="bg-blue-600 px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/30">Зберегти</button>
+                    <button id="del-btn" onclick="core.deleteEvent()" class="hidden bg-red-500/10 text-red-400 p-4 rounded-2xl">🗑</button>
+                    <button onclick="core.saveEvent()" class="bg-blue-600 px-8 py-4 rounded-2xl font-bold text-sm">Зберегти</button>
                 </div>
             </div>
         </div>
@@ -86,99 +83,114 @@
                 this.updateClock();
                 this.initColors();
                 
+                // Спеціальний обробник для файлу
+                document.getElementById('file-input').addEventListener('change', (e) => this.handleICS(e));
                 window.addEventListener('resize', () => this.onResize());
             },
 
             setupThree() {
                 this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-                this.camera.position.set(40, 30, 40);
+                this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(30, 40, 30);
                 
                 this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 document.getElementById('canvas-container').appendChild(this.renderer.domElement);
                 
                 this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
                 this.controls.enableDamping = true;
-                this.controls.dampingFactor = 0.05;
-
-                const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-                const point = new THREE.PointLight(0x3b82f6, 1, 100);
-                point.position.set(20, 50, 20);
-                this.scene.add(ambient, point);
                 
                 this.raycaster = new THREE.Raycaster();
                 this.mouse = new THREE.Vector2();
-                
-                this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+                this.renderer.domElement.addEventListener('pointerdown', (e) => this.onTap(e));
             },
 
-            // Математична основа спіралі
             getPos(time) {
                 const now = new Date();
                 const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
                 const diffDays = (time - startOfDay) / 86400000;
-                
                 const angle = diffDays * Math.PI * 2;
-                const y = diffDays * this.config.spiralStep;
-                return new THREE.Vector3(
-                    Math.cos(angle) * this.config.radius,
-                    y,
-                    Math.sin(angle) * this.config.radius
-                );
+                return new THREE.Vector3(Math.cos(angle)*this.config.radius, diffDays*this.config.spiralStep, Math.sin(angle)*this.config.radius);
             },
 
             renderSpiral() {
-                // Очищення сцени
-                while(this.scene.children.length > 2) this.scene.remove(this.scene.children[this.scene.children.length-1]);
+                while(this.scene.children.length > 0) this.scene.remove(this.scene.children[0]);
 
                 const now = Date.now();
                 const points = [];
-                for(let i = -24; i < 24 * 14; i++) {
-                    points.push(this.getPos(now + i * 3600000));
-                }
+                for(let i = -24; i < 24 * 14; i++) points.push(this.getPos(now + i * 3600000));
 
-                const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.5 });
-                this.scene.add(new THREE.Line(lineGeo, lineMat));
+                const spiralGeo = new THREE.BufferGeometry().setFromPoints(points);
+                this.scene.add(new THREE.Line(spiralGeo, new THREE.LineBasicMaterial({ color: 0x222222 })));
 
-                // Рендер подій
                 this.events.forEach(ev => {
                     const curvePts = [];
-                    const steps = 30;
-                    for(let i=0; i<=steps; i++) {
-                        const t = ev.start + (ev.end - ev.start) * (i/steps);
-                        curvePts.push(this.getPos(t));
-                    }
-                    const curve = new THREE.CatmullRomCurve3(curvePts);
-                    const tube = new THREE.TubeGeometry(curve, 32, 0.7, 8, false);
-                    const mat = new THREE.MeshPhongMaterial({ color: ev.color, emissive: ev.color, emissiveIntensity: 0.2 });
-                    const mesh = new THREE.Mesh(tube, mat);
+                    const steps = 64; // Збільшено для плавності
+                    for(let i=0; i<=steps; i++) curvePts.push(this.getPos(ev.start + (ev.end - ev.start)*(i/steps)));
+                    
+                    const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 64, 0.8, 8, false);
+                    const mesh = new THREE.Mesh(tube, new THREE.MeshBasicMaterial({ color: ev.color }));
                     mesh.userData = { id: ev.id };
                     this.scene.add(mesh);
                 });
 
-                // Маркер теперішнього часу
-                const marker = new THREE.Mesh(
-                    new THREE.SphereGeometry(1, 16, 16),
-                    new THREE.MeshBasicMaterial({ color: 0x3b82f6 })
-                );
-                marker.position.copy(this.getPos(Date.now()));
-                this.scene.add(marker);
+                const nowMarker = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x3b82f6 }));
+                nowMarker.position.copy(this.getPos(now));
+                this.scene.add(nowMarker);
+            },
+
+            // ВИПРАВЛЕНИЙ ІМПОРТ
+            async handleICS(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const content = event.target.result;
+                        const lines = content.split(/\r?\n/);
+                        let evs = [], cur = null;
+
+                        lines.forEach(line => {
+                            if (line.includes('BEGIN:VEVENT')) cur = { id: Math.random(), color: '#3b82f6' };
+                            if (line.includes('END:VEVENT') && cur) { evs.push(cur); cur = null; }
+                            if (!cur) return;
+
+                            if (line.startsWith('SUMMARY')) cur.title = line.split(':')[1];
+                            if (line.startsWith('DTSTART')) cur.start = this.parseICSDate(line.split(':')[1]);
+                            if (line.startsWith('DTEND')) cur.end = this.parseICSDate(line.split(':')[1]);
+                        });
+
+                        this.events = [...this.events, ...evs.filter(e => e.start && e.end)];
+                        this.save();
+                        this.renderSpiral();
+                        alert(`Успішно додано ${evs.length} подій`);
+                    } catch (err) {
+                        alert("Помилка читання файлу");
+                    }
+                };
+                reader.readAsText(file);
+            },
+
+            parseICSDate(str) {
+                if(!str) return null;
+                const y = str.substring(0,4), m = str.substring(4,6), d = str.substring(6,8);
+                const h = str.substring(9,11), min = str.substring(11,13);
+                return new Date(`${y}-${m}-${d}T${h}:${min}:00Z`).getTime();
             },
 
             saveEvent() {
-                const ev = {
-                    id: this.editingId || Date.now(),
-                    title: document.getElementById('ev-title').value,
-                    start: new Date(document.getElementById('ev-start').value).getTime(),
-                    end: new Date(document.getElementById('ev-end').value).getTime(),
-                    color: this.selectedColor || '#3b82f6'
-                };
+                const title = document.getElementById('ev-title').value || "Подія " + new Date().toLocaleDateString();
+                const start = new Date(document.getElementById('ev-start').value).getTime();
+                const end = new Date(document.getElementById('ev-end').value).getTime();
                 
+                if(!start || !end) return alert("Вкажіть час");
+
+                const newEv = { id: this.editingId || Date.now(), title, start, end, color: this.selectedColor };
                 if(this.editingId) this.events = this.events.filter(e => e.id !== this.editingId);
-                this.events.push(ev);
+                this.events.push(newEv);
+                
                 this.save();
                 this.renderSpiral();
                 this.closeEditor();
@@ -191,7 +203,6 @@
                 this.closeEditor();
             },
 
-            // --- UI ---
             openEditor(id = null) {
                 this.editingId = id;
                 const sheet = document.getElementById('editor');
@@ -202,7 +213,6 @@
                     document.getElementById('ev-title').value = ev.title;
                     document.getElementById('ev-start').value = new Date(ev.start - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
                     document.getElementById('ev-end').value = new Date(ev.end - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-                    this.selectedColor = ev.color;
                     delBtn.classList.remove('hidden');
                 } else {
                     document.getElementById('ev-title').value = '';
@@ -219,43 +229,43 @@
                 setTimeout(() => sheet.classList.add('pointer-events-none'), 400);
             },
 
-            onPointerDown(e) {
+            onTap(e) {
                 this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
                 this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
                 this.raycaster.setFromCamera(this.mouse, this.camera);
-                const intersects = this.raycaster.intersectObjects(this.scene.children);
-                const hit = intersects.find(i => i.object.userData.id);
+                const hits = this.raycaster.intersectObjects(this.scene.children);
+                const hit = hits.find(h => h.object.userData.id);
                 if(hit) this.openEditor(hit.object.userData.id);
             },
 
             focusNow() {
                 const target = this.getPos(Date.now());
                 this.controls.target.copy(target);
-                this.camera.position.set(target.x + 30, target.y + 20, target.z + 30);
+                this.camera.position.set(target.x + 25, target.y + 15, target.z + 25);
             },
 
-            // --- GOOGLE SYNC READY ---
             importClick() { document.getElementById('file-input').click(); },
-            
-            // --- SYSTEM ---
-            save() { localStorage.setItem('flip_invariant', JSON.stringify(this.events)); },
-            load() { const data = localStorage.getItem('flip_invariant'); if(data) this.events = JSON.parse(data); },
+            save() { localStorage.setItem('flip_aura', JSON.stringify(this.events)); },
+            load() { const d = localStorage.getItem('flip_aura'); if(d) this.events = JSON.parse(d); },
             updateClock() {
-                const n = new Date();
-                document.getElementById('clock').innerText = n.toLocaleTimeString('uk-UA', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + " • " + n.toLocaleDateString('uk-UA', {day:'numeric', month:'long'});
+                document.getElementById('clock').innerText = new Date().toLocaleTimeString('uk-UA', {hour:'2-digit', minute:'2-digit'}) + " • " + new Date().toLocaleDateString('uk-UA', {day:'numeric', month:'long'});
                 setTimeout(() => this.updateClock(), 1000);
             },
             initColors() {
-                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#64748b'];
                 const container = document.getElementById('color-dots');
                 colors.forEach(c => {
                     const dot = document.createElement('div');
-                    dot.className = 'w-8 h-8 rounded-full cursor-pointer border-2 border-transparent hover:border-white transition';
+                    dot.className = 'w-7 h-7 rounded-full border-2 border-white/10 active:scale-75 transition';
                     dot.style.background = c;
-                    dot.onclick = () => this.selectedColor = c;
+                    dot.onclick = () => {
+                        this.selectedColor = c;
+                        container.querySelectorAll('div').forEach(d => d.style.borderColor = 'rgba(255,255,255,0.1)');
+                        dot.style.borderColor = 'white';
+                    };
                     container.appendChild(dot);
                 });
-                this.selectedColor = colors[0];
+                this.selectedColor = colors[3];
             },
             animate() {
                 requestAnimationFrame(() => this.animate());
