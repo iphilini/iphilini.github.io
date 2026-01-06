@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FLIP! v8.3 Full Sync</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f8fafc; font-family: 'Outfit', sans-serif; display: flex; flex-direction: column; }
+        #ui-layer { flex: 0 0 auto; z-index: 10; padding: 10px; }
+        #canvas-container { flex: 1 1 auto; position: relative; background: white; border-top: 1px solid #e2e8f0; touch-action: none; }
+        .interactive { pointer-events: auto; }
+        .flip-card { background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        .day-btn { width: 32px; height: 32px; border-radius: 8px; font-size: 10px; font-weight: bold; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .day-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+        .input-field { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 12px; font-size: 13px; outline: none; width: 100%; }
+        .input-field:focus { border-color: #2563eb; ring: 2px ring-blue-100; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="flip-card p-4 w-full max-w-[360px] space-y-3 mx-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <div class="flex items-baseline gap-2">
+                    <h1 class="text-lg font-900 text-slate-900">FLIP<span class="text-blue-600">!</span></h1>
+                    <span id="live-date" class="text-[10px] font-bold text-slate-400 uppercase"></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="focusToday()" class="text-xl text-slate-300 hover:text-blue-600 transition-colors">◎</button>
+                    <div id="live-clock" class="text-xs font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg tabular-nums">00:00</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <label class="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full cursor-pointer text-slate-500 hover:bg-slate-200" title="Імпорт (↓)">
+                    <span class="text-xl">↓</span>
+                    <input type="file" class="hidden" accept=".json" onchange="importData(event)">
+                </label>
+                <button onclick="openModal()" class="flex-1 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-200 active:scale-95 transition-all">
+                    + Створити подію
+                </button>
+                <button onclick="exportData()" class="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200" title="Експорт (↑)">
+                    <span class="text-xl">↑</span>
+                </button>
+            </div>
+
+            <details class="group">
+                <summary class="list-none cursor-pointer flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    Налаштування рендеру <span class="group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="pt-3 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <p class="text-[7px] text-slate-400 mb-1 ml-1">ВІД</p>
+                            <input id="cfg-from" type="date" class="input-field py-1.5 text-xs">
+                        </div>
+                        <div>
+                            <p class="text-[7px] text-slate-400 mb-1 ml-1">ДО</p>
+                            <input id="cfg-to" type="date" class="input-field py-1.5 text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[7px] text-slate-400 mb-1 ml-1">ВИСОТА ВИТКА</p>
+                        <input id="cfg-height" type="range" min="1" max="15" step="0.5" value="6" class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                </div>
+            </details>
+
+            <details class="group border-t pt-3" open>
+                <summary class="list-none cursor-pointer flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    Мій розклад <span class="group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div id="event-list" class="mt-2 space-y-1.5 max-h-[180px] overflow-y-auto pr-1"></div>
+            </details>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-[320px] p-6 rounded-[28px] shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+            <h2 class="text-lg font-900 text-slate-800">Подія</h2>
+            
+            <input id="ev-name" type="text" placeholder="Назва події" class="input-field text-base">
+            
+            <div class="grid grid-cols-1 gap-3">
+                <input id="ev-start" type="datetime-local" class="input-field">
+                <input id="ev-end" type="datetime-local" class="input-field">
+            </div>
+
+            <div class="flex justify-between gap-1">
+                <div class="day-btn" data-day="1">Пн</div><div class="day-btn" data-day="2">Вт</div><div class="day-btn" data-day="3">Ср</div>
+                <div class="day-btn" data-day="4">Чт</div><div class="day-btn" data-day="5">Пт</div><div class="day-btn" data-day="6">Сб</div><div class="day-btn" data-day="0">Нд</div>
+            </div>
+
+            <div class="flex items-center gap-3 pt-2">
+                <div class="relative w-12 h-12 shrink-0">
+                    <input id="ev-color" type="color" value="#2563eb" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div id="color-preview" class="w-full h-full rounded-xl border-4 border-slate-50 shadow-inner" style="background: #2563eb"></div>
+                </div>
+                <button id="pre-save-btn" class="flex-1 bg-blue-600 text-white h-12 rounded-xl font-bold uppercase tracking-wider text-xs">Зберегти</button>
+                <button id="del-btn" class="hidden w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-bold">✕</button>
+            </div>
+            
+            <button onclick="closeModal()" class="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest py-2">Скасувати</button>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'flip_calendar_data';
+        let events = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let editingId = null;
+
+        // Date init
+        const dFrom = new Date();
+        const dTo = new Date(); dTo.setDate(dFrom.getDate() + 10);
+        document.getElementById('cfg-from').value = dFrom.toISOString().split('T')[0];
+        document.getElementById('cfg-to').value = dTo.toISOString().split('T')[0];
+
+        // Three.js Core
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff);
+        const camera = new THREE.PerspectiveCamera(40, container.clientWidth/container.clientHeight, 0.1, 1000);
+        camera.position.set(35, 35, 35);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+        
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        const mainGroup = new THREE.Group();
+        const eventGroup = new THREE.Group();
+        scene.add(mainGroup, eventGroup);
+
+        const nowDisk = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.1, 32), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
+        scene.add(nowDisk);
+
+        function getPos(timeMs) {
+            const base = new Date(document.getElementById('cfg-from').value).getTime();
+            const hrs = (timeMs - base) / 3600000;
+            const hStep = parseFloat(document.getElementById('cfg-height').value);
+            const angle = (hrs / 24) * Math.PI * 2;
+            const y = (hrs / 24) * hStep; 
+            return new THREE.Vector3(Math.cos(angle)*10, y, Math.sin(angle)*10);
+        }
+
+        function buildSpiral() {
+            mainGroup.clear();
+            const from = new Date(document.getElementById('cfg-from').value).getTime();
+            const to = new Date(document.getElementById('cfg-to').value).getTime();
+            if(to <= from) return;
+
+            const pts = [];
+            for(let t = from; t <= to; t += 600000) pts.push(getPos(t));
+            const spiralLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(pts),
+                new THREE.LineBasicMaterial({ color: 0x000000, opacity: 0.1, transparent: true })
+            );
+            mainGroup.add(spiralLine);
+        }
+
+        function update3D() {
+            eventGroup.clear();
+            const limitMin = new Date(document.getElementById('cfg-from').value).getTime();
+            const limitMax = new Date(document.getElementById('cfg-to').value).getTime();
+
+            events.forEach(ev => {
+                // Малюємо тільки те, що входить в діапазон рендеру
+                const start = Math.max(ev.start, limitMin);
+                const end = Math.min(ev.end, limitMax);
+                
+                if (start < end) {
+                    const curvePts = [];
+                    for(let i=0; i<=15; i++) curvePts.push(getPos(start + (end - start)*(i/15)));
+                    const tube = new THREE.Mesh(
+                        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 20, 0.5, 8, false),
+                        new THREE.MeshBasicMaterial({ color: ev.color })
+                    );
+                    tube.userData = { id: ev.id };
+                    eventGroup.add(tube);
+                }
+            });
+            renderList();
+        }
+
+        // Click Handler (Fixed Raycaster)
+        const raycaster = new THREE.Raycaster();
+        container.addEventListener('pointerdown', (e) => {
+            const rect = container.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(eventGroup.children);
+            if (intersects.length > 0) openModal(intersects[0].object.userData.id);
+        });
+
+        function renderList() {
+            const html = [...events].sort((a,b) => a.start - b.start).map(ev => {
+                const d = new Date(ev.start);
+                return `
+                <div onclick="openModal(${ev.id})" class="p-3 bg-slate-50 rounded-xl flex items-center justify-between cursor-pointer border border-transparent hover:border-blue-100 transition-all">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="w-1.5 h-4 rounded-full" style="background:${ev.color}"></div>
+                        <span class="text-[11px] font-bold text-slate-700 truncate">${ev.name || 'Подія'}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[8px] font-black text-blue-500 uppercase">${d.toLocaleDateString('uk-UA', {day:'2-digit', month:'short'})}</span>
+                        <span class="text-[10px] text-slate-400 tabular-nums">${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}</span>
+                    </div>
+                </div>`;
+            }).join('');
+            document.getElementById('event-list').innerHTML = html || '<p class="text-[10px] text-slate-300 text-center py-4">Список порожній</p>';
+        }
+
+        function openModal(id = null) {
+            editingId = id;
+            const ev = events.find(e => e.id === id) || { 
+                name: '', 
+                start: Date.now(), 
+                end: Date.now() + 3600000, 
+                color: '#2563eb', 
+                repeat: [] 
+            };
+            
+            document.getElementById('ev-name').value = ev.name;
+            // Local ISO fix for input
+            const toLocalISO = (ts) => new Date(ts - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            document.getElementById('ev-start').value = toLocalISO(ev.start);
+            document.getElementById('ev-end').value = toLocalISO(ev.end);
+            document.getElementById('ev-color').value = ev.color;
+            document.getElementById('color-preview').style.background = ev.color;
+            document.getElementById('del-btn').classList.toggle('hidden', !id);
+            
+            document.querySelectorAll('.day-btn').forEach(btn => 
+                btn.classList.toggle('active', (ev.repeat || []).includes(parseInt(btn.dataset.day)))
+            );
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        document.getElementById('pre-save-btn').onclick = () => {
+            const data = {
+                id: editingId || Date.now(),
+                name: document.getElementById('ev-name').value,
+                start: new Date(document.getElementById('ev-start').value).getTime(),
+                end: new Date(document.getElementById('ev-end').value).getTime(),
+                color: document.getElementById('ev-color').value,
+                repeat: Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day))
+            };
+            events = events.filter(e => e.id !== editingId);
+            events.push(data);
+            save(); closeModal();
+        };
+
+        function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); buildSpiral(); update3D(); }
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+        document.getElementById('del-btn').onclick = () => { events = events.filter(e => e.id !== editingId); save(); closeModal(); };
+        document.getElementById('ev-color').oninput = (e) => document.getElementById('color-preview').style.background = e.target.value;
+        
+        function focusToday() {
+            const p = getPos(Date.now());
+            controls.target.copy(p);
+            camera.position.set(p.x + 25, p.y + 25, p.z + 25);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const now = new Date();
+            const pos = getPos(now.getTime());
+            nowDisk.position.copy(pos);
+            nowDisk.lookAt(getPos(now.getTime() + 100000));
+            nowDisk.rotateX(Math.PI/2);
+            
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            document.getElementById('live-date').innerText = now.toLocaleDateString('uk-UA', {day:'numeric', month:'long'});
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        document.querySelectorAll('.day-btn').forEach(btn => btn.onclick = () => btn.classList.toggle('active'));
+        ['cfg-from', 'cfg-to', 'cfg-height'].forEach(id => document.getElementById(id).oninput = () => { buildSpiral(); update3D(); });
+
+        buildSpiral(); update3D(); animate(); focusToday();
+    </script>
+</body>
+</html>
