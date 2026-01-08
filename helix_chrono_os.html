@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HELIX CHRONOS: Fractal Time OS</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;700;900&display=swap');
+        
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #050510; font-family: 'Outfit', sans-serif; display: flex; flex-direction: row; }
+        
+        /* UI Layer Styles */
+        #ui-sidebar { flex: 0 0 320px; z-index: 20; background: rgba(10, 10, 20, 0.95); border-right: 1px solid #1f2937; backdrop-filter: blur(20px); display: flex; flex-direction: column; transition: transform 0.3s; }
+        #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%); touch-action: none; overflow: hidden; }
+        
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        
+        /* Glassmorphism Inputs */
+        .glass-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; transition: 0.3s; }
+        .glass-input:focus { border-color: #3b82f6; background: rgba(255,255,255,0.1); outline: none; }
+        
+        .day-btn { width: 30px; height: 30px; border-radius: 6px; font-size: 10px; font-weight: bold; border: 1px solid #334155; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #94a3b8; transition: 0.2s; }
+        .day-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+
+        /* HUD Overlay */
+        #hud-overlay { position: absolute; bottom: 20px; right: 20px; pointer-events: none; text-align: right; }
+        .hud-text { font-size: 10px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; }
+        .hud-value { font-size: 24px; color: #e2e8f0; font-weight: 900; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-sidebar" class="p-5 h-full text-slate-200 shadow-2xl">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
+            <div>
+                <h1 class="text-xl font-900 tracking-tighter text-white">HELIX<span class="text-blue-500">.</span>FLOW</h1>
+                <p class="text-[9px] text-slate-500 mono tracking-widest">CHRONO-SPIRAL ENGINE v1.0</p>
+            </div>
+            <div id="live-clock" class="text-sm font-bold mono text-blue-400 bg-blue-900/20 px-2 py-1 rounded">00:00</div>
+        </div>
+
+        <div class="space-y-4 mb-6">
+            <button onclick="openModal()" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-blue-900/50 transition-all transform active:scale-95">
+                + Додати подію
+            </button>
+            
+            <div class="flex gap-2">
+                <button onclick="cameraToNow()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-300 border border-slate-700 transition-colors">
+                    Focus Now
+                </button>
+                <button onclick="toggleViewMode()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-300 border border-slate-700 transition-colors">
+                    Top View
+                </button>
+            </div>
+        </div>
+
+        <details class="group mb-4">
+            <summary class="list-none cursor-pointer flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900/50 p-2 rounded hover:bg-slate-800 transition">
+                Геометрія Часу <span class="group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div class="pt-4 space-y-4 px-1">
+                <div>
+                    <div class="flex justify-between text-[9px] text-slate-400 mb-1">
+                        <span>ЕВОЛЮЦІЯ СПІРАЛІ (Radius)</span>
+                        <span id="val-radius">1.0</span>
+                    </div>
+                    <input id="cfg-radius" type="range" min="0.1" max="2" step="0.1" value="1" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                </div>
+                <div>
+                    <div class="flex justify-between text-[9px] text-slate-400 mb-1">
+                        <span>ЩІЛЬНІСТЬ ЧАСУ (Spacing)</span>
+                        <span id="val-spacing">1.0</span>
+                    </div>
+                    <input id="cfg-spacing" type="range" min="0.5" max="3" step="0.1" value="1.5" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                </div>
+                <div>
+                     <div class="flex justify-between text-[9px] text-slate-400 mb-1">
+                        <span>ГЛИБИНА РЕНДЕРУ (Дні)</span>
+                        <span id="val-days">365</span>
+                    </div>
+                    <input id="cfg-days" type="range" min="7" max="730" step="1" value="180" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                </div>
+            </div>
+        </details>
+
+        <div class="flex-1 overflow-hidden flex flex-col">
+            <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-1">Хронологія</h3>
+            <div id="event-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                </div>
+        </div>
+    </div>
+
+    <div id="canvas-container">
+        <div id="hud-overlay">
+            <div class="hud-text">Поточна Фаза</div>
+            <div id="hud-date" class="hud-value">...</div>
+            <div id="hud-details" class="text-xs text-blue-400 font-mono mt-1">S3: YEAR | S1: DAY</div>
+        </div>
+    </div>
+
+    <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+        <div class="bg-[#0f172a] border border-slate-700 w-full max-w-[320px] p-6 rounded-[28px] shadow-2xl space-y-5">
+            <h2 class="text-lg font-900 text-white">Редактор Події</h2>
+            
+            <input id="ev-name" type="text" placeholder="Назва події..." class="glass-input w-full p-3 rounded-xl text-sm">
+            
+            <div class="grid grid-cols-1 gap-3">
+                <div class="space-y-1">
+                    <label class="text-[9px] text-slate-400 uppercase font-bold">Початок</label>
+                    <input id="ev-start" type="datetime-local" class="glass-input w-full p-2 rounded-lg text-xs mono">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[9px] text-slate-400 uppercase font-bold">Кінець</label>
+                    <input id="ev-end" type="datetime-local" class="glass-input w-full p-2 rounded-lg text-xs mono">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 pt-2">
+                <div class="relative w-10 h-10 shrink-0 overflow-hidden rounded-full border border-slate-600">
+                    <input id="ev-color" type="color" value="#3b82f6" class="absolute inset-0 w-[150%] h-[150%] -top-[25%] -left-[25%] cursor-pointer p-0 border-0">
+                </div>
+                <button id="save-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-10 rounded-xl font-bold uppercase tracking-wider text-xs transition-colors">Зберегти</button>
+                <button id="del-btn" class="hidden w-10 h-10 bg-red-900/30 hover:bg-red-900/50 text-red-500 border border-red-900 rounded-xl flex items-center justify-center transition-colors">✕</button>
+            </div>
+            
+            <button onclick="closeModal()" class="w-full text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Скасувати</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIG & STATE ---
+        const CONFIG = {
+            yearRadius: 30,
+            monthRadius: 8,
+            dayRadius: 2.5,  // Base S1 radius
+            tubeThick: 0.4,
+            daysRender: 180, // Half year by default
+            spacingFactor: 1.5,
+            scaleFactor: 1.0
+        };
+
+        const STORAGE_KEY = 'helix_chronos_data';
+        let events = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        
+        // Ensure some demo data if empty
+        if (events.length === 0) {
+            const now = Date.now();
+            events = [
+                { id: 1, name: "Project Helix Init", start: now - 3600000*2, end: now + 3600000, color: "#3b82f6" },
+                { id: 2, name: "Deep Work Phase", start: now + 3600000*3, end: now + 3600000*6, color: "#a855f7" },
+                { id: 3, name: "Review", start: now + 86400000, end: now + 86400000 + 3600000, color: "#10b981" }
+            ];
+        }
+
+        let editingId = null;
+
+        // --- 2. THREE.JS SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene(); 
+        // Fog for depth cueing
+        scene.fog = new THREE.FogExp2(0x050510, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 1000);
+        camera.position.set(0, 40, 80);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // Tone mapping for neon glow effect
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 200;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+        
+        const sunLight = new THREE.PointLight(0xffffff, 1, 300);
+        sunLight.position.set(0, 50, 0);
+        scene.add(sunLight);
+
+        // Groups
+        const worldGroup = new THREE.Group();
+        scene.add(worldGroup);
+        const structureGroup = new THREE.Group(); // The spirals
+        const eventsGroup = new THREE.Group();    // The event tubes
+        const cursorGroup = new THREE.Group();    // The "Now" indicator
+        worldGroup.add(structureGroup, eventsGroup, cursorGroup);
+
+        // Materials
+        const spiralMatS3 = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.3 }); // Year
+        const spiralMatS2 = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.4 }); // Month
+        const spiralMatS1 = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.2 }); // Day wireframe
+
+        // --- 3. THE MATH ENGINE (Fractal Time) ---
+
+        // Helper: Convert Timestamp to hierarchical coordinates
+        // Reference point: Start of current year
+        const currentYearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+        const msPerYear = 365.25 * 24 * 3600 * 1000;
+        const msPerMonth = msPerYear / 12;
+        const msPerDay = 24 * 3600 * 1000;
+
+        function getFractalPosition(timestamp) {
+            // Normalized time within the year (0..1 roughly, but can go beyond for next years)
+            const tYear = (timestamp - currentYearStart) / msPerYear;
+            
+            // S3: Year Spiral (Base Ring)
+            // It spirals slightly upwards to separate years
+            const s3Angle = tYear * Math.PI * 2; 
+            const s3Radius = CONFIG.yearRadius * CONFIG.scaleFactor;
+            // Vertical drift per year
+            const s3Y = tYear * 10 * CONFIG.spacingFactor; 
+            
+            // S3 Frenet Frame Basis
+            // Tangent vector approx (-sin, 0, cos)
+            // Normal vector approx (-cos, 0, -sin) -> pointing inward
+            // Binormal vector (0, 1, 0) -> Up
+            const cx = Math.cos(s3Angle) * s3Radius;
+            const cz = Math.sin(s3Angle) * s3Radius;
+            const cy = s3Y;
+
+            const normal = new THREE.Vector3(-Math.cos(s3Angle), 0, -Math.sin(s3Angle));
+            const binormal = new THREE.Vector3(0, 1, 0);
+
+            // S2: Month Spiral (Loops around S3)
+            // 12 Loops per year
+            const tMonth = (timestamp - currentYearStart) / msPerMonth;
+            const s2Angle = tMonth * Math.PI * 2;
+            const s2Radius = CONFIG.monthRadius * CONFIG.scaleFactor;
+            
+            // Position relative to S3 center
+            // We rotate around the S3 tube
+            const s2LocalX = Math.cos(s2Angle) * s2Radius;
+            const s2LocalY = Math.sin(s2Angle) * s2Radius;
+
+            // Apply frame
+            const p2 = new THREE.Vector3(cx, cy, cz)
+                .add(normal.clone().multiplyScalar(s2LocalX))
+                .add(binormal.clone().multiplyScalar(s2LocalY));
+
+            // S2 Frame for S1
+            // Tangent of S2 moves along the loop. 
+            // We need a normal that points towards S2 center (S3 line)
+            const s2Normal = new THREE.Vector3().copy(p2).sub(new THREE.Vector3(cx, cy, cz)).normalize().negate();
+            const s2Tangent = new THREE.Vector3(-Math.sin(s2Angle), Math.cos(s2Angle), 0).normalize(); // Local tangent
+            // Rotate tangent to world space... simplified:
+            // Let's build a local basis for S1 on top of S2
+            const s2Binormal = new THREE.Vector3().crossVectors(s2Normal, normal).normalize(); // Approximation
+
+            // S1: Day Spiral (Loops around S2)
+            // ~30 loops per month
+            const tDay = (timestamp - currentYearStart) / msPerDay;
+            const s1Angle = tDay * Math.PI * 2;
+            const s1Radius = CONFIG.dayRadius * CONFIG.scaleFactor;
+
+            const s1LocalX = Math.cos(s1Angle) * s1Radius;
+            const s1LocalY = Math.sin(s1Angle) * s1Radius;
+
+            // Apply frame to S2 position
+            // We use s2Normal and s2Binormal (or Up) to wrap S1 around S2
+            // Simplification for stability: Use standard Up and radial vector from S2 center
+            
+            // Refined Frame Logic:
+            // S2 moves in a circle. S1 winds around it.
+            // Center of S1 is p2.
+            // Basis:
+            // U = s2Normal (pointing to S3)
+            // V = Cross(TangentS2, U)
+            
+            // Let's use a simpler "Torus Knot" style math for stability
+            // P = P_year + P_month + P_day
+            
+            // Re-calc with cleaner vector math
+            const S3_R = CONFIG.yearRadius * CONFIG.scaleFactor;
+            const S2_R = CONFIG.monthRadius * CONFIG.scaleFactor;
+            const S1_R = CONFIG.dayRadius * CONFIG.scaleFactor;
+            
+            // S3 Pos
+            const thetaY = tYear * Math.PI * 2;
+            const P3 = new THREE.Vector3(Math.cos(thetaY)*S3_R, cy, Math.sin(thetaY)*S3_R);
+            
+            // S2 Pos (Relative to S3)
+            // Rotates 12 times faster
+            const thetaM = tMonth * Math.PI * 2;
+            // Basis for S2 rotation: Radial(X), Up(Y)
+            const vRad = new THREE.Vector3(Math.cos(thetaY), 0, Math.sin(thetaY));
+            const vUp = new THREE.Vector3(0, 1, 0);
+            
+            const P2_offset = vRad.clone().multiplyScalar(Math.cos(thetaM)*S2_R)
+                              .add(vUp.clone().multiplyScalar(Math.sin(thetaM)*S2_R));
+            const P2 = P3.clone().add(P2_offset);
+            
+            // S1 Pos (Relative to S2)
+            // Rotates 365 times faster
+            const thetaD = tDay * Math.PI * 2;
+            // Basis for S1: We need to orbit P2 wire. 
+            // Tangent of S2 is roughly Cross(vRad, vUp) rotated? 
+            // Let's just rotate around the tangent of the S2 loop.
+            // S2 Tangent approx:
+            const vTanM = vRad.clone().multiplyScalar(-Math.sin(thetaM))
+                          .add(vUp.clone().multiplyScalar(Math.cos(thetaM))).normalize();
+            
+            // We need two vectors perpendicular to vTanM to define the S1 circle
+            const vN1 = new THREE.Vector3().crossVectors(vTanM, vRad).normalize(); // Or approximate
+            const vN2 = new THREE.Vector3().crossVectors(vTanM, vN1).normalize();
+            
+            const P1_offset = vN1.clone().multiplyScalar(Math.cos(thetaD)*S1_R)
+                              .add(vN2.clone().multiplyScalar(Math.sin(thetaD)*S1_R));
+            
+            const finalPos = P2.add(P1_offset);
+            
+            return finalPos;
+        }
+
+        // --- 4. RENDERERS ---
+
+        function buildStructure() {
+            structureGroup.clear();
+            
+            const now = Date.now();
+            const startT = now - (msPerDay * 30); // 1 month back
+            const endT = now + (msPerDay * CONFIG.daysRender);
+            
+            // Draw S1 Trace (The "Day" wire where events live)
+            const points = [];
+            const step = msPerDay / 24; // Resolution: 1 hour steps
+            
+            for(let t = startT; t <= endT; t += step) {
+                points.push(getFractalPosition(t));
+            }
+            
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const spine = new THREE.Line(geometry, new THREE.LineBasicMaterial({
+                color: 0x334155, 
+                opacity: 0.3, 
+                transparent: true 
+            }));
+            structureGroup.add(spine);
+
+            // Add Day Markers (S2/S1 intersections)
+            const markerGeo = new THREE.SphereGeometry(0.3, 8, 8);
+            const markerMat = new THREE.MeshBasicMaterial({ color: 0x475569 });
+            const instancedMesh = new THREE.InstancedMesh(markerGeo, markerMat, Math.floor((endT-startT)/msPerDay) + 1);
+            
+            let idx = 0;
+            const dummy = new THREE.Object3D();
+            
+            for(let t = startT; t <= endT; t += msPerDay) {
+                const pos = getFractalPosition(t); // Start of day (00:00)
+                dummy.position.copy(pos);
+                dummy.updateMatrix();
+                instancedMesh.setMatrixAt(idx++, dummy.matrix);
+            }
+            structureGroup.add(instancedMesh);
+        }
+
+        function buildEvents() {
+            eventsGroup.clear();
+            
+            events.forEach(ev => {
+                // Determine resolution based on duration
+                const duration = ev.end - ev.start;
+                if (duration <= 0) return;
+                
+                // Segments count
+                const segments = Math.max(5, Math.floor(duration / (1000 * 60 * 15))); // Every 15 mins
+                
+                const curvePoints = [];
+                for(let i=0; i<=segments; i++) {
+                    const t = ev.start + (duration * (i/segments));
+                    curvePoints.push(getFractalPosition(t));
+                }
+                
+                const curve = new THREE.CatmullRomCurve3(curvePoints);
+                const tubeGeo = new THREE.TubeGeometry(curve, segments, CONFIG.tubeThick, 6, false);
+                const tubeMat = new THREE.MeshBasicMaterial({ color: ev.color });
+                const mesh = new THREE.Mesh(tubeGeo, tubeMat);
+                
+                // Interaction Data
+                mesh.userData = { id: ev.id, name: ev.name };
+                eventsGroup.add(mesh);
+                
+                // Glow effect (wireframe around tube)
+                const wireGeo = new THREE.WireframeGeometry(tubeGeo);
+                const wireMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 });
+                const wire = new THREE.LineSegments(wireGeo, wireMat);
+                eventsGroup.add(wire);
+            });
+        }
+
+        function updateCursor() {
+            cursorGroup.clear();
+            const now = Date.now();
+            const pos = getFractalPosition(now);
+            
+            // The "Spark"
+            const geo = new THREE.SphereGeometry(0.8, 16, 16);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pos);
+            cursorGroup.add(mesh);
+            
+            // Glow
+            const glowGeo = new THREE.SphereGeometry(1.5, 16, 16);
+            const glowMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.2, wireframe: true });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.position.copy(pos);
+            cursorGroup.add(glow);
+
+            // Update HUD
+            document.getElementById('hud-date').innerText = new Date().toLocaleDateString('uk-UA', {day:'numeric', month:'short'});
+            
+            return pos;
+        }
+
+        // --- 5. INTERACTION & UI LOGIC ---
+        
+        // Raycaster
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        container.addEventListener('pointerdown', (e) => {
+            const rect = container.getBoundingClientRect();
+            pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(pointer, camera);
+            const intersects = raycaster.intersectObjects(eventsGroup.children);
+            
+            if (intersects.length > 0) {
+                const target = intersects[0].object;
+                if (target.userData.id) openModal(target.userData.id);
+            }
+        });
+
+        // UI Functions
+        function renderList() {
+            const listEl = document.getElementById('event-list');
+            listEl.innerHTML = events.sort((a,b) => a.start - b.start).map(ev => {
+                const d = new Date(ev.start);
+                const isPast = ev.end < Date.now();
+                return `
+                <div onclick="openModal(${ev.id})" class="p-3 bg-slate-800/50 hover:bg-slate-700/80 rounded-xl flex items-center justify-between cursor-pointer border border-transparent hover:border-slate-600 transition-all group ${isPast ? 'opacity-50' : ''}">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="w-1 h-8 rounded-full shadow-[0_0_8px]" style="background:${ev.color}; box-shadow: 0 0 10px ${ev.color}40"></div>
+                        <div>
+                            <div class="text-[11px] font-bold text-slate-200 truncate group-hover:text-white">${ev.name || 'Без назви'}</div>
+                            <div class="text-[9px] text-slate-500 mono">${d.toLocaleDateString('uk-UA', {day:'2-digit', month:'short'})} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Modal Logic
+        function openModal(id = null) {
+            editingId = id;
+            const ev = events.find(e => e.id === id) || { 
+                name: '', 
+                start: Date.now(), 
+                end: Date.now() + 3600000, 
+                color: '#3b82f6' 
+            };
+            
+            document.getElementById('ev-name').value = ev.name;
+            const toLocalISO = (ts) => new Date(ts - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            document.getElementById('ev-start').value = toLocalISO(ev.start);
+            document.getElementById('ev-end').value = toLocalISO(ev.end);
+            document.getElementById('ev-color').value = ev.color;
+            document.getElementById('del-btn').classList.toggle('hidden', !id);
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        document.getElementById('save-btn').onclick = () => {
+            const data = {
+                id: editingId || Date.now(),
+                name: document.getElementById('ev-name').value,
+                start: new Date(document.getElementById('ev-start').value).getTime(),
+                end: new Date(document.getElementById('ev-end').value).getTime(),
+                color: document.getElementById('ev-color').value
+            };
+            if(editingId) events = events.filter(e => e.id !== editingId);
+            events.push(data);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+            refreshAll();
+            closeModal();
+        };
+
+        document.getElementById('del-btn').onclick = () => {
+            events = events.filter(e => e.id !== editingId);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+            refreshAll();
+            closeModal();
+        };
+
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+        // Camera Control
+        function cameraToNow() {
+            const pos = getFractalPosition(Date.now());
+            // Smooth fly to logic would be here, but simple jump for now
+            const offset = new THREE.Vector3(10, 10, 10);
+            controls.target.copy(pos);
+            camera.position.copy(pos).add(offset);
+        }
+
+        function toggleViewMode() {
+            camera.position.set(0, 200, 0);
+            controls.target.set(0, 0, 0);
+        }
+
+        function refreshAll() {
+            buildStructure();
+            buildEvents();
+            updateCursor();
+            renderList();
+        }
+
+        // Settings Listeners
+        document.getElementById('cfg-radius').oninput = (e) => {
+            CONFIG.scaleFactor = parseFloat(e.target.value);
+            document.getElementById('val-radius').innerText = CONFIG.scaleFactor;
+            refreshAll();
+        };
+        document.getElementById('cfg-spacing').oninput = (e) => {
+            CONFIG.spacingFactor = parseFloat(e.target.value);
+            document.getElementById('val-spacing').innerText = CONFIG.spacingFactor;
+            refreshAll();
+        };
+        document.getElementById('cfg-days').oninput = (e) => {
+            CONFIG.daysRender = parseInt(e.target.value);
+            document.getElementById('val-days').innerText = CONFIG.daysRender;
+            refreshAll();
+        };
+
+        // --- 6. ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const dt = clock.getDelta();
+            
+            // Update HUD Clock
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            
+            // Rotate world slowly for "Flow" effect
+            // structureGroup.rotation.y += 0.0005;
+            // eventsGroup.rotation.y += 0.0005;
+            
+            // Pulse current time cursor
+            const t = clock.getElapsedTime();
+            const cursor = cursorGroup.children[1]; // The glow
+            if(cursor) {
+                cursor.scale.setScalar(1 + Math.sin(t*3)*0.2);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Init
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        refreshAll();
+        animate();
+        // Initial Focus
+        setTimeout(cameraToNow, 100);
+
+    </script>
+</body>
+</html>
