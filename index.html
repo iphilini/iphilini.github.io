@@ -1,100 +1,94 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>HELIX CORE: PHASE 1 - DEBUG MODE</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <meta charset="utf-8">
+    <title>HELIX DEBUG: SYSTEM CHECK</title>
     <style>
-        body { margin: 0; background: #1a202c; overflow: hidden; color: white; font-family: monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(0,0,0,0.8); padding: 20px; border: 1px solid #4a5568; border-radius: 8px; }
-        input { width: 300px; }
-    </script>
+        body { margin: 0; background-color: #000; overflow: hidden; color: #0f0; font-family: 'Courier New', monospace; }
+        #status-overlay {
+            position: absolute; top: 10px; left: 10px; z-index: 100;
+            background: rgba(0,20,0,0.8); padding: 10px; border: 1px solid #0f0;
+        }
+        #error-log { color: #f00; margin-top: 10px; }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-    <div id="ui">
-        <strong>HELIX STAGING LEVEL (ALPHA):</strong> <span id="alpha-val" style="color: #63b3ed;">1.00</span><br><br>
-        <input id="alpha-slider" type="range" min="0" max="3" step="0.01" value="1.0">
-        <div style="font-size: 10px; margin-top: 10px; color: #a0aec0;">
-            0.0 - 1.0: Сходинки (S1)<br>
-            1.0 - 2.0: Денний виток (S2)<br>
-            2.0 - 3.0: Річний контекст (S3)
-        </div>
+    <div id="status-overlay">
+        > SYSTEM: HELIX CHRONOS (PHASE 1)<br>
+        > STATUS: INITIALIZING...<br>
+        > STAGING (ALPHA): <span id="alpha-val">1.0</span>
+        <div id="error-log"></div>
     </div>
 
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+
     <script>
-        const scene = new THREE.Scene();
-        // Темно-синій фон для контрасту
-        scene.background = new THREE.Color(0x0a0e14);
+        window.onerror = function(msg) {
+            document.getElementById('error-log').innerHTML = "ERROR: " + msg;
+        };
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        try {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
 
-        // Додаємо сітку, щоб розуміти де центр
-        const grid = new THREE.GridHelper(100, 20, 0x2d3748, 0x2d3748);
-        scene.add(grid);
+            // Додаємо тестовий куб, щоб перевірити чи взагалі працює графіка
+            const testBox = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 1, 1),
+                new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
+            );
+            scene.add(testBox);
 
-        const helixGroup = new THREE.Group();
-        scene.add(helixGroup);
+            // Додаємо сітку координат (Grid)
+            const grid = new THREE.GridHelper(100, 50, 0x004400, 0x002200);
+            scene.add(grid);
 
-        // Математика S-рівнів
-        function getSpiralPoint(t, alpha) {
-            let x = 0, y = t * 20, z = 0; // t * 20 - швидкість підйому
+            // Група для спіралі
+            const helixGroup = new THREE.Group();
+            scene.add(helixGroup);
 
-            // S2: Денний виток (основна спіраль)
-            const a2 = Math.max(0, Math.min(alpha, 1)); 
-            const r2 = 15; // Радіус дня
-            x += Math.cos(t * Math.PI * 2) * r2 * a2;
-            z += Math.sin(t * Math.PI * 2) * r2 * a2;
-
-            // S1: Годинні сходинки (мікро-витки)
-            const a1 = Math.max(0, Math.min(alpha - 1, 1));
-            const r1 = 3; // Радіус години
-            x += Math.cos(t * Math.PI * 48) * r1 * a1;
-            z += Math.sin(t * Math.PI * 48) * r1 * a1;
-
-            return new THREE.Vector3(x, y, z);
-        }
-
-        function build() {
-            helixGroup.clear();
-            const alpha = parseFloat(document.getElementById('alpha-slider').value);
-            document.getElementById('alpha-val').innerText = alpha.toFixed(2);
-
-            const points = [];
-            // Малюємо 3 повних витки (3 дні)
-            for (let t = 0; t <= 3; t += 0.002) {
-                points.push(getSpiralPoint(t, alpha));
+            function getSpiralPoint(t, alpha) {
+                let x = 0, y = t * 10, z = 0;
+                // Основна спіраль (День)
+                const radius = 10 * alpha;
+                x += Math.cos(t * Math.PI * 4) * radius;
+                z += Math.sin(t * Math.PI * 4) * radius;
+                return new THREE.Vector3(x, y, z);
             }
 
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-            // Яскраво-блакитна лінія (як у фільмах про майбутнє)
-            const material = new THREE.LineBasicMaterial({ color: 0x00d2ff });
-            const line = new THREE.Line(geometry, material);
-            helixGroup.add(line);
+            function buildHelix() {
+                helixGroup.clear();
+                const points = [];
+                for (let t = 0; t < 5; t += 0.01) {
+                    points.push(getSpiralPoint(t, 1.0));
+                }
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
+                const line = new THREE.Line(geometry, material);
+                helixGroup.add(line);
+            }
+
+            buildHelix();
+
+            camera.position.set(20, 20, 20);
+            camera.lookAt(0, 10, 0);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                testBox.rotation.y += 0.02;
+                helixGroup.rotation.y += 0.005;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            document.getElementById('status-overlay').innerHTML += "<br>> GRAPHICS: OK";
+
+        } catch (e) {
+            document.getElementById('error-log').innerHTML = "BOOT ERROR: " + e.message;
         }
-
-        // Камера під кутом
-        camera.position.set(40, 40, 40);
-        camera.lookAt(0, 20, 0);
-
-        document.getElementById('alpha-slider').oninput = build;
-        
-        // Початкова побудова
-        build();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            helixGroup.rotation.y += 0.002; // Повільне обертання для об'єму
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        window.onresize = () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        };
     </script>
 </body>
 </html>
