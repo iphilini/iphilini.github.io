@@ -2,23 +2,30 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX: REAL-TIME PULSE</title>
+    <title>HELIX: DATA KERNEL</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
         body { margin: 0; background: #00050a; overflow: hidden; font-family: 'Courier New', monospace; }
-        #hud { position: absolute; top: 20px; left: 20px; color: #00ffff; background: rgba(0,20,40,0.85); padding: 15px; border: 2px solid #00ffff; border-radius: 8px; box-shadow: 0 0 20px rgba(0,255,255,0.2); }
-        #clock { font-size: 24px; color: #ffcc00; margin-top: 5px; }
+        #hud { position: absolute; top: 20px; left: 20px; color: #00ffff; background: rgba(0,20,40,0.9); padding: 15px; border: 2px solid #00ffff; border-radius: 8px; width: 300px; z-index: 100; }
+        #clock { font-size: 24px; color: #ffcc00; margin-bottom: 10px; }
         #binary { position: absolute; bottom: 20px; right: 20px; color: #00ff00; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #00ff00; }
-        .label { position: absolute; color: #000; background: #ffcc00; font-size: 14px; font-weight: bold; padding: 4px 10px; border-radius: 4px; pointer-events: none; white-space: nowrap; box-shadow: 0 0 15px #ffcc00; transition: opacity 0.3s; }
-        .btn-toggle { background: #00ffff; color: #000; border: none; padding: 5px 10px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .label { position: absolute; color: #000; background: #ffcc00; font-size: 14px; font-weight: bold; padding: 4px 10px; border-radius: 4px; pointer-events: none; box-shadow: 0 0 15px #ffcc00; }
+        .input-group { margin-top: 10px; border-top: 1px dashed #00ffff; padding-top: 10px; }
+        input { background: #000; border: 1px solid #00ffff; color: #00ffff; padding: 5px; width: 90%; margin-bottom: 5px; }
+        button { background: #ffcc00; border: none; padding: 5px 10px; cursor: pointer; font-weight: bold; width: 100%; }
+        button:hover { background: #fff; }
     </style>
 </head>
 <body>
     <div id="hud">
-        <strong>HELIX_PULSE_v2.0</strong><br>
+        <strong>HELIX_OS_KERNEL_v2.5</strong>
         <div id="clock">00:00:00</div>
-        STATUS: <span id="status">LIVE_SYNC</span><br>
-        <button class="btn-toggle" onclick="toggleMode()">SWITCH: MANUAL/LIVE</button>
+        <div class="input-group">
+            <input id="task-name" type="text" placeholder="НАЗВА ПОДІЇ...">
+            <input id="task-time" type="time">
+            <button onclick="addTask()">+ ДОДАТИ НА СПІРАЛЬ</button>
+        </div>
+        <button style="margin-top:10px; background:#00ffff;" onclick="isManual = !isManual">MODE: LIVE/MANUAL</button>
     </div>
     <div id="binary">000000000000</div>
     <div id="label-container"></div>
@@ -33,48 +40,56 @@
         scene.add(new THREE.AmbientLight(0x404040, 2.5));
         const pointLight = new THREE.PointLight(0x00ffff, 4, 100);
         scene.add(pointLight);
-        scene.add(new THREE.GridHelper(200, 50, 0x002222, 0x001111));
 
         let isManual = false;
         let timelinePos = 0;
-        
-        // Твої часові вузли (можна буде редагувати)
-        const sdnData = [
-            { h: 9, m: 0, name: "START: DEEP_WORK" },
-            { h: 13, m: 0, name: "RECHARGE_BREAK" },
-            { h: 16, m: 30, name: "DATA_SYNTHESIS" },
-            { h: 21, m: 0, name: "REFLECT_LOGS" }
-        ];
+        let tasks = JSON.parse(localStorage.getItem('helix_tasks')) || [];
 
         function getPos(t) {
-            const radius = 18;
-            return new THREE.Vector3(Math.cos(t * Math.PI * 2) * radius, t * 25, Math.sin(t * Math.PI * 2) * radius);
+            return new THREE.Vector3(Math.cos(t * Math.PI * 2) * 18, t * 25, Math.sin(t * Math.PI * 2) * 18);
         }
 
-        // Спіраль (Tube)
+        // Спіраль
         const curvePoints = [];
         for(let t=0; t<3; t+=0.02) curvePoints.push(getPos(t));
-        const tubeGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePoints), 120, 0.2, 8, false);
-        scene.add(new THREE.Mesh(tubeGeo, new THREE.MeshBasicMaterial({ color: 0x00d2ff, transparent: true, opacity: 0.6 })));
-
-        const nodes = sdnData.map(d => {
-            const t = (d.h + d.m/60) / 24 * 3; // Конвертуємо час у позицію на спіралі
-            const m = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshStandardMaterial({color: 0xffcc00, emissive: 0xffcc00}));
-            m.position.copy(getPos(t));
-            scene.add(m);
-            const div = document.createElement('div');
-            div.className = 'label';
-            div.innerHTML = `[${d.h}:${d.m < 10 ? '0'+d.m : d.m}] ${d.name}`;
-            document.getElementById('label-container').appendChild(div);
-            return { mesh: m, div: div, t: t };
-        });
+        const tube = new THREE.Mesh(
+            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePoints), 120, 0.15, 8, false),
+            new THREE.MeshBasicMaterial({ color: 0x00d2ff, transparent: true, opacity: 0.4 })
+        );
+        scene.add(tube);
 
         const anchor = new THREE.Mesh(new THREE.SphereGeometry(1.4, 32, 32), new THREE.MeshPhongMaterial({color: 0xff0044, emissive: 0xff0044, emissiveIntensity: 2}));
         scene.add(anchor);
 
-        function toggleMode() {
-            isManual = !isManual;
-            document.getElementById('status').innerText = isManual ? "MANUAL_NAV" : "LIVE_SYNC";
+        let nodes = [];
+
+        function renderTasks() {
+            nodes.forEach(n => { scene.remove(n.mesh); n.div.remove(); });
+            nodes = [];
+            tasks.forEach(task => {
+                const [h, m] = task.time.split(':').map(Number);
+                const t = (h + m/60) / 24 * 3;
+                
+                const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshStandardMaterial({color: 0xffcc00, emissive: 0xffcc00}));
+                mesh.position.copy(getPos(t));
+                scene.add(mesh);
+
+                const div = document.createElement('div');
+                div.className = 'label';
+                div.innerHTML = `[${task.time}] ${task.name}`;
+                document.getElementById('label-container').appendChild(div);
+                nodes.push({ mesh, div, t });
+            });
+        }
+
+        function addTask() {
+            const name = document.getElementById('task-name').value;
+            const time = document.getElementById('task-time').value;
+            if(!name || !time) return;
+            tasks.push({ name, time });
+            localStorage.setItem('helix_tasks', JSON.stringify(tasks));
+            renderTasks();
+            document.getElementById('task-name').value = '';
         }
 
         window.addEventListener('wheel', (e) => {
@@ -86,43 +101,28 @@
         function update() {
             const now = new Date();
             if (!isManual) {
-                // Розрахунок позиції на основі часу доби (цикл 24 год = 3 оберти спіралі)
-                const hours = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
-                timelinePos = (hours / 24) * 3;
+                const h = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
+                timelinePos = (h / 24) * 3;
             }
-            
             document.getElementById('clock').innerText = now.toTimeString().split(' ')[0];
-            
             const pos = getPos(timelinePos);
             anchor.position.copy(pos);
             pointLight.position.copy(pos);
             document.getElementById('binary').innerText = Math.floor(timelinePos * 1024).toString(2).padStart(12, '0');
 
-            let zoomFactor = 0;
             nodes.forEach(n => {
                 const screenPos = n.mesh.position.clone().project(camera);
                 n.div.style.left = `${(screenPos.x + 1) * window.innerWidth / 2}px`;
                 n.div.style.top = `${(-screenPos.y + 1) * window.innerHeight / 2}px`;
-                
                 const dist = pos.distanceTo(n.mesh.position);
                 n.div.style.opacity = dist < 20 ? 1 : 0;
-                if(dist < 5) {
-                    zoomFactor = (5 - dist) / 5;
-                    n.mesh.scale.setScalar(1 + zoomFactor);
-                }
             });
-
-            // Динамічна камера: наближається, коли ми біля події
-            const camOffset = 45 - (zoomFactor * 15);
-            camera.position.lerp(new THREE.Vector3(pos.x + camOffset, pos.y + 15, pos.z + camOffset), 0.05);
+            camera.position.lerp(new THREE.Vector3(pos.x + 40, pos.y + 15, pos.z + 40), 0.05);
             camera.lookAt(pos);
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            update();
-            renderer.render(scene, camera);
-        }
+        renderTasks();
+        function animate() { requestAnimationFrame(animate); update(); renderer.render(scene, camera); }
         animate();
     </script>
 </body>
