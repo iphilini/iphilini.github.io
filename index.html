@@ -2,23 +2,22 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX: SDN OPTIMIZER</title>
+    <title>HELIX: BINARY MEMORY ACTIVE</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
         body { margin: 0; background: #010409; overflow: hidden; font-family: 'Courier New', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,20,40,0.9); padding: 20px; border: 1px solid #ffcc00; color: #ffcc00; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,20,40,0.9); padding: 20px; border: 1px solid #00ffff; color: #00ffff; }
+        #binary-hud { position: absolute; bottom: 20px; right: 20px; color: #00ff00; font-size: 24px; text-align: right; text-shadow: 0 0 10px #00ff00; }
         input { width: 300px; }
-        button { background: #ffcc00; border: none; padding: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; }
-        button:hover { background: #fff; }
     </style>
 </head>
 <body>
     <div id="ui">
-        > SDN_OPTIMIZER: ACTIVE<br>
-        > RADIUS_STABILITY: <span id="stab">0.95</span><br>
+        > SYSTEM: HAMSTER_WORLD_CORE<br>
+        > ADDR: <span id="spiral-word">0000</span><br>
         > TIMELINE: <input id="time-slider" type="range" min="0" max="2.5" step="0.001" value="0.5">
-        <button onclick="optimizeSDN()">RUN SDN OPTIMIZATION</button>
     </div>
+    <div id="binary-hud">00000000</div>
 
     <script>
         const scene = new THREE.Scene();
@@ -30,55 +29,40 @@
         const helixGroup = new THREE.Group();
         scene.add(helixGroup);
 
-        // Якір SLM
         const anchor = new THREE.Mesh(
             new THREE.SphereGeometry(0.6, 32, 32),
             new THREE.MeshBasicMaterial({ color: 0xff0044 })
         );
         scene.add(anchor);
 
-        // SDN Точки (Золоті маркери успіху)
-        const sdnNodes = [];
-        const sdnPositions = [0.4, 0.85, 1.2, 1.9, 2.3]; // Фази успіху на спіралі
+        // SDN вузли
+        const sdnPositions = [0.4, 0.85, 1.2, 1.9, 2.3];
+        const sdnNodes = sdnPositions.map(t => {
+            const node = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.4 }));
+            node.position.copy(getPos(t));
+            scene.add(node);
+            return node;
+        });
 
         function getPos(t) {
             let x = Math.cos(t * Math.PI * 2) * 12;
             let z = Math.sin(t * Math.PI * 2) * 12;
             let y = t * 15;
-            // Мікро-фаза години
             x += Math.cos(t * Math.PI * 48) * 1.5;
             z += Math.sin(t * Math.PI * 48) * 1.5;
             return new THREE.Vector3(x, y, z);
         }
 
-        // Створення SDN вузлів
-        sdnPositions.forEach(t => {
-            const node = new THREE.Mesh(
-                new THREE.SphereGeometry(0.4, 16, 16),
-                new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.6 })
-            );
-            node.position.copy(getPos(t));
-            node.userData = { targetT: t };
-            scene.add(node);
-            sdnNodes.push(node);
-        });
-
-        // Основна спіраль
+        // Побудова спіралі
         const points = [];
         for (let t = 0; t < 2.5; t += 0.005) points.push(getPos(t));
-        const line = new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(points),
-            new THREE.LineBasicMaterial({ color: 0x00d2ff, opacity: 0.2, transparent: true })
-        );
-        helixGroup.add(line);
+        helixGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x00d2ff, opacity: 0.2, transparent: true })));
 
-        function optimizeSDN() {
-            // Імітація алгоритму Чапо: невеликий випадковий зсув для пошуку кращої точки
-            sdnNodes.forEach(node => {
-                node.userData.targetT += (Math.random() - 0.5) * 0.1;
-                node.position.copy(getPos(node.userData.targetT));
-            });
-            console.log("> SDN Update: Exploration step completed");
+        // Функція бінарного кодування (Hamster World)
+        function generateSpiralWord(t) {
+            let base = Math.floor(t * 1000).toString(2);
+            let level = t > 1.5 ? "00" : "0"; // Чим вищий рівень, тим більше нулів
+            return base + level;
         }
 
         function update(time) {
@@ -86,16 +70,19 @@
             const pos = getPos(t);
             anchor.position.copy(pos);
 
-            // Логіка пульсації (SDN Proximity)
+            // Оновлення Бінарного HUD
+            const word = generateSpiralWord(t);
+            document.getElementById('spiral-word').innerText = word;
+            document.getElementById('binary-hud').innerText = word;
+
+            // Пульсація при SDN контакті
             sdnNodes.forEach(node => {
                 const dist = pos.distanceTo(node.position);
-                if (dist < 5) {
-                    const s = 1 + Math.sin(time * 0.01) * (5 - dist) * 0.2;
-                    node.scale.set(s, s, s);
-                    node.material.opacity = 1.0;
+                if (dist < 3) {
+                    node.scale.setScalar(1 + Math.sin(time * 0.02) * 0.5);
+                    document.getElementById('binary-hud').style.color = "#ffcc00";
                 } else {
-                    node.scale.set(1, 1, 1);
-                    node.material.opacity = 0.4;
+                    node.scale.setScalar(1);
                 }
             });
 
