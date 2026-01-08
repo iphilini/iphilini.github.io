@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HELIX CHRONOS: Quantum Lab</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Outfit:wght@400;900&display=swap');
+        body { margin: 0; background: #f8fafc; font-family: 'Outfit', sans-serif; overflow: hidden; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        #canvas-container { position: absolute; inset: 0; z-index: 1; }
+        .ui-panel { position: absolute; z-index: 10; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 8px 32px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div class="ui-panel left-4 top-4 bottom-4 w-72 rounded-3xl p-6 flex flex-col gap-6">
+    <div>
+        <h1 class="text-xl font-900 tracking-tighter text-slate-900">HELIX<span class="text-blue-600">.</span>CHRONOS</h1>
+        <p class="text-[10px] text-slate-400 mono font-bold uppercase tracking-widest">S3-S0 Quantum Interface</p>
+    </div>
+
+    <div class="space-y-4">
+        <div>
+            <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase mb-2">
+                <span>Рівень Ієрархії (α)</span>
+                <span id="alpha-val" class="text-blue-600">1.0</span>
+            </div>
+            <input id="alpha-slider" type="range" min="0" max="3" step="0.01" value="1.5" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+        </div>
+
+        <div>
+            <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase mb-2">
+                <span>Масштаб S-рівнів</span>
+                <span id="scale-val">1.0</span>
+            </div>
+            <input id="scale-slider" type="range" min="0.5" max="2" step="0.1" value="1" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-800">
+        </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto">
+        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Фази Синхронізації</h3>
+        <div id="event-list" class="space-y-2">
+            </div>
+    </div>
+
+    <button onclick="focusNow()" class="w-full py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all">
+        Фокус: Зараз
+    </button>
+</div>
+
+<div class="ui-panel bottom-4 left-80 right-4 h-20 rounded-3xl px-8 flex items-center justify-between">
+    <div class="flex gap-8">
+        <div>
+            <div class="text-[9px] font-bold text-slate-400 uppercase">Поточна Дата</div>
+            <div id="hud-date" class="text-lg font-900 text-slate-800">...</div>
+        </div>
+        <div class="border-l border-slate-200 pl-8">
+            <div class="text-[9px] font-bold text-slate-400 uppercase">Час (UTC+2)</div>
+            <div id="hud-time" class="text-lg font-900 text-slate-800 mono">00:00:00</div>
+        </div>
+    </div>
+    <div id="mode-indicator" class="px-4 py-1 rounded-full bg-blue-50 border border-blue-100 text-[10px] font-bold text-blue-600 uppercase tracking-tighter">
+        S2: Денний Виток
+    </div>
+</div>
+
+<script>
+    // --- Глобальні константи згідно з Enhanced Time Spiral ---
+    const CONFIG = {
+        rYear: 40,
+        rMonth: 12,
+        rDay: 4,
+        rHour: 1.2,
+        msHour: 3600000,
+        msDay: 86400000,
+        msMonth: 86400000 * 30,
+        msYear: 86400000 * 365,
+        resolution: 2000
+    };
+
+    // --- Сцена та Рендерер ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf1f5f9);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000);
+    camera.position.set(60, 60, 60);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // Освітлення
+    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambient);
+    const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+    sun.position.set(100, 200, 100);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    // Групи
+    const helixGroup = new THREE.Group();
+    const cursorGroup = new THREE.Group();
+    scene.add(helixGroup, cursorGroup);
+
+    // --- Математичне Ядро (Інтерполяція S3 -> S0) ---
+    function getFractalPoint(t_ms, alpha, globalScale = 1.0) {
+        const now = Date.now();
+        const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime();
+        const dt = t_ms - startOfYear;
+
+        let x = 0, y = 0, z = 0;
+
+        // Базова вісь (час як лінія по Y)
+        y = (dt / CONFIG.msDay) * 15; 
+
+        // S3: Річний рівень (Alpha 2.0 - 3.0)
+        if (alpha > 2) {
+            const a3 = Math.min(alpha - 2, 1.0);
+            const theta3 = (dt / CONFIG.msYear) * Math.PI * 2;
+            const r3 = CONFIG.rYear * globalScale * a3;
+            x += Math.cos(theta3) * r3;
+            z += Math.sin(theta3) * r3;
+        }
+
+        // S2: Денний рівень (Alpha 1.0 - 2.0)
+        if (alpha > 1) {
+            const a2 = Math.min(alpha - 1, 1.0);
+            const theta2 = (dt / CONFIG.msDay) * Math.PI * 2;
+            const r2 = CONFIG.rDay * globalScale * a2;
+            
+            // Вкладеність: S2 обертається навколо S3 або лінії
+            x += Math.cos(theta2) * r2;
+            z += Math.sin(theta2) * r2;
+        }
+
+        // S1: Годинний рівень (Alpha 0.0 - 1.0)
+        if (alpha > 0) {
+            const a1 = Math.min(alpha, 1.0);
+            const theta1 = (dt / CONFIG.msHour) * Math.PI * 2;
+            const r1 = CONFIG.rHour * globalScale * a1;
+            
+            x += Math.cos(theta1) * r1;
+            z += Math.sin(theta1) * r1;
+        }
+
+        return new THREE.Vector3(x, y, z);
+    }
+
+    // --- Генерація Геометрії ---
+    let mainHelix;
+    function buildHelix() {
+        if (mainHelix) helixGroup.remove(mainHelix);
+
+        const alpha = parseFloat(document.getElementById('alpha-slider').value);
+        const scale = parseFloat(document.getElementById('scale-slider').value);
+        
+        const points = [];
+        const now = Date.now();
+        const range = CONFIG.msDay * 7; // Показуємо тиждень
+        const step = range / CONFIG.resolution;
+
+        for (let t = now - (CONFIG.msDay); t < now + range; t += step) {
+            points.push(getFractalPoint(t, alpha, scale));
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ 
+            color: 0x1e293b, 
+            transparent: true, 
+            opacity: 0.6,
+            linewidth: 2 
+        });
+        
+        mainHelix = new THREE.Line(geometry, material);
+        helixGroup.add(mainHelix);
+
+        updateHUD(alpha);
+    }
+
+    // --- Маркер "Зараз" (S0 Phase) ---
+    function updateCursor() {
+        cursorGroup.clear();
+        const alpha = parseFloat(document.getElementById('alpha-slider').value);
+        const scale = parseFloat(document.getElementById('scale-slider').value);
+        const pos = getFractalPoint(Date.now(), alpha, scale);
+
+        // Основна точка
+        const dot = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0x2563eb })
+        );
+        dot.position.copy(pos);
+        cursorGroup.add(dot);
+
+        // Фазове кільце (Pulse)
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.8, 1.0, 32),
+            new THREE.MeshBasicMaterial({ color: 0x2563eb, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+        );
+        ring.position.copy(pos);
+        ring.lookAt(camera.position);
+        ring.scale.setScalar(1 + Math.sin(Date.now() * 0.005) * 0.2);
+        cursorGroup.add(ring);
+
+        // Обновлення часу в HUD
+        const d = new Date();
+        document.getElementById('hud-time').innerText = d.toLocaleTimeString('uk-UA', {hour12:false});
+        document.getElementById('hud-date').innerText = d.toLocaleDateString('uk-UA', {day:'numeric', month:'long', year:'numeric'});
+    }
+
+    function updateHUD(alpha) {
+        document.getElementById('alpha-val').innerText = alpha.toFixed(2);
+        const indicator = document.getElementById('mode-indicator');
+        if (alpha < 1) indicator.innerText = "S1: Годинна фаза";
+        else if (alpha < 2) indicator.innerText = "S2: Денний цикл";
+        else indicator.innerText = "S3: Річна структура";
+    }
+
+    function focusNow() {
+        const alpha = parseFloat(document.getElementById('alpha-slider').value);
+        const scale = parseFloat(document.getElementById('scale-slider').value);
+        const pos = getFractalPoint(Date.now(), alpha, scale);
+        controls.target.copy(pos);
+        camera.position.set(pos.x + 20, pos.y + 20, pos.z + 20);
+    }
+
+    // --- Слухачі подій ---
+    document.getElementById('alpha-slider').oninput = () => { buildHelix(); };
+    document.getElementById('scale-slider').oninput = (e) => { 
+        document.getElementById('scale-val').innerText = e.target.value;
+        buildHelix(); 
+    };
+
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    // --- Loop ---
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        updateCursor();
+        renderer.render(scene, camera);
+    }
+
+    // Запуск
+    buildHelix();
+    animate();
+    setTimeout(focusNow, 100);
+
+</script>
+</body>
+</html>
