@@ -2,19 +2,22 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX: SLM ANCHOR</title>
+    <title>HELIX: SDN OPTIMIZER</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
-        body { margin: 0; background: #020508; overflow: hidden; font-family: 'Courier New', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,20,40,0.8); padding: 15px; border: 1px solid #00d2ff; color: #00d2ff; }
-        input { width: 250px; }
+        body { margin: 0; background: #010409; overflow: hidden; font-family: 'Courier New', monospace; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,20,40,0.9); padding: 20px; border: 1px solid #ffcc00; color: #ffcc00; }
+        input { width: 300px; }
+        button { background: #ffcc00; border: none; padding: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; }
+        button:hover { background: #fff; }
     </style>
 </head>
 <body>
     <div id="ui">
-        > SLM_DECODING_ACTIVE<br>
-        > FOCUS_INDEX: <span id="idx">0</span><br>
-        > TIMELINE_POS: <input id="time-slider" type="range" min="0" max="2.5" step="0.001" value="0.5">
+        > SDN_OPTIMIZER: ACTIVE<br>
+        > RADIUS_STABILITY: <span id="stab">0.95</span><br>
+        > TIMELINE: <input id="time-slider" type="range" min="0" max="2.5" step="0.001" value="0.5">
+        <button onclick="optimizeSDN()">RUN SDN OPTIMIZATION</button>
     </div>
 
     <script>
@@ -24,62 +27,88 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Grid
-        scene.add(new THREE.GridHelper(100, 50, 0x001122, 0x001122));
-
         const helixGroup = new THREE.Group();
         scene.add(helixGroup);
 
-        // Якір SLM (The Anchor Token)
-        const anchorGeo = new THREE.SphereGeometry(0.5, 32, 32);
-        const anchorMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
-        const anchor = new THREE.Mesh(anchorGeo, anchorMat);
+        // Якір SLM
+        const anchor = new THREE.Mesh(
+            new THREE.SphereGeometry(0.6, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xff0044 })
+        );
         scene.add(anchor);
 
-        // Математика (Iivari + Spiral)
+        // SDN Точки (Золоті маркери успіху)
+        const sdnNodes = [];
+        const sdnPositions = [0.4, 0.85, 1.2, 1.9, 2.3]; // Фази успіху на спіралі
+
         function getPos(t) {
-            const alpha = 1.5; // Фіксуємо для наочності
             let x = Math.cos(t * Math.PI * 2) * 12;
             let z = Math.sin(t * Math.PI * 2) * 12;
             let y = t * 15;
-            
-            // Додаємо годинну фазу
-            x += Math.cos(t * Math.PI * 48) * 2;
-            z += Math.sin(t * Math.PI * 48) * 2;
-            
+            // Мікро-фаза години
+            x += Math.cos(t * Math.PI * 48) * 1.5;
+            z += Math.sin(t * Math.PI * 48) * 1.5;
             return new THREE.Vector3(x, y, z);
         }
 
-        // Рендер спіралі
+        // Створення SDN вузлів
+        sdnPositions.forEach(t => {
+            const node = new THREE.Mesh(
+                new THREE.SphereGeometry(0.4, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.6 })
+            );
+            node.position.copy(getPos(t));
+            node.userData = { targetT: t };
+            scene.add(node);
+            sdnNodes.push(node);
+        });
+
+        // Основна спіраль
         const points = [];
         for (let t = 0; t < 2.5; t += 0.005) points.push(getPos(t));
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0x00d2ff, opacity: 0.4, transparent: true });
-        const mainLine = new THREE.Line(geometry, material);
-        helixGroup.add(mainLine);
+        const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(points),
+            new THREE.LineBasicMaterial({ color: 0x00d2ff, opacity: 0.2, transparent: true })
+        );
+        helixGroup.add(line);
 
-        function update() {
+        function optimizeSDN() {
+            // Імітація алгоритму Чапо: невеликий випадковий зсув для пошуку кращої точки
+            sdnNodes.forEach(node => {
+                node.userData.targetT += (Math.random() - 0.5) * 0.1;
+                node.position.copy(getPos(node.userData.targetT));
+            });
+            console.log("> SDN Update: Exploration step completed");
+        }
+
+        function update(time) {
             const t = parseFloat(document.getElementById('time-slider').value);
             const pos = getPos(t);
-            
-            // Рух якоря
             anchor.position.copy(pos);
-            document.getElementById('idx').innerText = (t * 24).toFixed(2) + "h";
 
-            // Камера слідує за фокусом (Smooth Follow)
-            camera.position.lerp(new THREE.Vector3(pos.x + 20, pos.y + 10, pos.z + 20), 0.05);
+            // Логіка пульсації (SDN Proximity)
+            sdnNodes.forEach(node => {
+                const dist = pos.distanceTo(node.position);
+                if (dist < 5) {
+                    const s = 1 + Math.sin(time * 0.01) * (5 - dist) * 0.2;
+                    node.scale.set(s, s, s);
+                    node.material.opacity = 1.0;
+                } else {
+                    node.scale.set(1, 1, 1);
+                    node.material.opacity = 0.4;
+                }
+            });
+
+            camera.position.lerp(new THREE.Vector3(pos.x + 25, pos.y + 15, pos.z + 25), 0.05);
             camera.lookAt(pos);
         }
 
-        // Початкова позиція камери
-        camera.position.set(40, 40, 40);
-
-        function animate() {
+        function animate(time) {
             requestAnimationFrame(animate);
-            update();
+            update(time);
             renderer.render(scene, camera);
         }
-        animate();
+        animate(0);
     </script>
 </body>
 </html>
