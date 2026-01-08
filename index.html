@@ -2,93 +2,102 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX DEBUG: SYSTEM CHECK</title>
+    <title>HELIX CORE: BINARY STEPS</title>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
-        body { margin: 0; background-color: #000; overflow: hidden; color: #0f0; font-family: 'Courier New', monospace; }
-        #status-overlay {
-            position: absolute; top: 10px; left: 10px; z-index: 100;
-            background: rgba(0,20,0,0.8); padding: 10px; border: 1px solid #0f0;
-        }
-        #error-log { color: #f00; margin-top: 10px; }
-        canvas { display: block; }
+        body { margin: 0; background-color: #050a10; overflow: hidden; font-family: 'Courier New', monospace; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,255,255,0.05); padding: 20px; border: 1px dashed #00ffff; color: #00ffff; }
+        input { width: 250px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div id="status-overlay">
-        > SYSTEM: HELIX CHRONOS (PHASE 1)<br>
-        > STATUS: INITIALIZING...<br>
-        > STAGING (ALPHA): <span id="alpha-val">1.0</span>
-        <div id="error-log"></div>
+    <div id="ui">
+        > HELIX_OS INITIALIZED<br>
+        > ADDR_MODE: SPIRAL_BINARY<br>
+        > SCALE_STAGING: <input id="alpha-slider" type="range" min="0" max="2" step="0.01" value="1.0">
     </div>
 
-    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-
     <script>
-        window.onerror = function(msg) {
-            document.getElementById('error-log').innerHTML = "ERROR: " + msg;
-        };
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-        try {
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
+        const grid = new THREE.GridHelper(100, 40, 0x002222, 0x001111);
+        scene.add(grid);
 
-            // Додаємо тестовий куб, щоб перевірити чи взагалі працює графіка
-            const testBox = new THREE.Mesh(
-                new THREE.BoxGeometry(1, 1, 1),
-                new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
-            );
-            scene.add(testBox);
+        const helixGroup = new THREE.Group();
+        scene.add(helixGroup);
 
-            // Додаємо сітку координат (Grid)
-            const grid = new THREE.GridHelper(100, 50, 0x004400, 0x002200);
-            scene.add(grid);
+        // Логіка Hamster World: кодування рівнів через кроки
+        function getHelixPoint(t, alpha) {
+            let x = 0, y = t * 15, z = 0;
+            
+            // S2: Денний ритм (Радіус 12)
+            const dayRadius = 12 * Math.min(alpha, 1);
+            x += Math.cos(t * Math.PI * 2) * dayRadius;
+            z += Math.sin(t * Math.PI * 2) * dayRadius;
 
-            // Група для спіралі
-            const helixGroup = new THREE.Group();
-            scene.add(helixGroup);
-
-            function getSpiralPoint(t, alpha) {
-                let x = 0, y = t * 10, z = 0;
-                // Основна спіраль (День)
-                const radius = 10 * alpha;
-                x += Math.cos(t * Math.PI * 4) * radius;
-                z += Math.sin(t * Math.PI * 4) * radius;
-                return new THREE.Vector3(x, y, z);
+            // S1: Годинна сходинка (Радіус 2)
+            // Активується лише коли Alpha > 1
+            if (alpha > 1) {
+                const hourAlpha = (alpha - 1);
+                x += Math.cos(t * Math.PI * 48) * 3 * hourAlpha;
+                z += Math.sin(t * Math.PI * 48) * 3 * hourAlpha;
             }
-
-            function buildHelix() {
-                helixGroup.clear();
-                const points = [];
-                for (let t = 0; t < 5; t += 0.01) {
-                    points.push(getSpiralPoint(t, 1.0));
-                }
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
-                const line = new THREE.Line(geometry, material);
-                helixGroup.add(line);
-            }
-
-            buildHelix();
-
-            camera.position.set(20, 20, 20);
-            camera.lookAt(0, 10, 0);
-
-            function animate() {
-                requestAnimationFrame(animate);
-                testBox.rotation.y += 0.02;
-                helixGroup.rotation.y += 0.005;
-                renderer.render(scene, camera);
-            }
-            animate();
-
-            document.getElementById('status-overlay').innerHTML += "<br>> GRAPHICS: OK";
-
-        } catch (e) {
-            document.getElementById('error-log').innerHTML = "BOOT ERROR: " + e.message;
+            return new THREE.Vector3(x, y, z);
         }
+
+        function renderHelix() {
+            helixGroup.clear();
+            const alpha = parseFloat(document.getElementById('alpha-slider').value);
+            
+            // Створюємо "сходинки" (Points)
+            const points = [];
+            const colors = [];
+            const color = new THREE.Color();
+
+            for (let t = 0; t < 2.5; t += 0.005) {
+                const p = getHelixPoint(t, alpha);
+                points.push(p);
+
+                // Кодування кольором за рівнем (Hamster World Logic)
+                // Кожна "година" (t * 24) підсвічується яскравіше
+                if ((t * 24) % 1 < 0.05) {
+                    color.setHex(0xffffff); // Білий - маркер години
+                } else {
+                    color.setHSL(0.5, 1, 0.5 * (1 - t/3)); // Блакитний градієнт
+                }
+                colors.push(color.r, color.g, color.b);
+            }
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const material = new THREE.LineBasicMaterial({ 
+                vertexColors: true, 
+                linewidth: 2,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const line = new THREE.Line(geometry, material);
+            helixGroup.add(line);
+        }
+
+        camera.position.set(35, 35, 35);
+        camera.lookAt(0, 15, 0);
+
+        document.getElementById('alpha-slider').oninput = renderHelix;
+        renderHelix();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            helixGroup.rotation.y += 0.003;
+            renderer.render(scene, camera);
+        }
+        animate();
     </script>
 </body>
 </html>
