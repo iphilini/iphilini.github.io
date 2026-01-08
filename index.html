@@ -2,22 +2,22 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX: BINARY MEMORY ACTIVE</title>
+    <title>HELIX: KNOWLEDGE BEAMS ACTIVE</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
         body { margin: 0; background: #010409; overflow: hidden; font-family: 'Courier New', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,20,40,0.9); padding: 20px; border: 1px solid #00ffff; color: #00ffff; }
-        #binary-hud { position: absolute; bottom: 20px; right: 20px; color: #00ff00; font-size: 24px; text-align: right; text-shadow: 0 0 10px #00ff00; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,255,255,0.1); padding: 20px; border: 1px solid #00ffff; color: #fff; text-shadow: 0 0 5px #00ffff; }
+        #binary-hud { position: absolute; bottom: 20px; right: 20px; color: #00ff00; font-size: 18px; text-align: right; opacity: 0.7; }
         input { width: 300px; }
     </style>
 </head>
 <body>
     <div id="ui">
-        > SYSTEM: HAMSTER_WORLD_CORE<br>
-        > ADDR: <span id="spiral-word">0000</span><br>
-        > TIMELINE: <input id="time-slider" type="range" min="0" max="2.5" step="0.001" value="0.5">
+        > PHASE_3: SLM_CONTEXT_ACTIVE<br>
+        > KNOWLEDGE_LEVEL: <span id="k-level">INDIVIDUAL</span><br>
+        > SCAN_RADIUS: <input id="time-slider" type="range" min="0" max="2.5" step="0.001" value="0.5">
     </div>
-    <div id="binary-hud">00000000</div>
+    <div id="binary-hud">INIT...</div>
 
     <script>
         const scene = new THREE.Scene();
@@ -29,20 +29,18 @@
         const helixGroup = new THREE.Group();
         scene.add(helixGroup);
 
+        // Якір SLM
         const anchor = new THREE.Mesh(
-            new THREE.SphereGeometry(0.6, 32, 32),
+            new THREE.SphereGeometry(0.7, 32, 32),
             new THREE.MeshBasicMaterial({ color: 0xff0044 })
         );
         scene.add(anchor);
 
-        // SDN вузли
-        const sdnPositions = [0.4, 0.85, 1.2, 1.9, 2.3];
-        const sdnNodes = sdnPositions.map(t => {
-            const node = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.4 }));
-            node.position.copy(getPos(t));
-            scene.add(node);
-            return node;
-        });
+        // Промені зв'язку (Beams)
+        const beamGeometry = new THREE.BufferGeometry();
+        const beamMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+        const beamLine = new THREE.LineSegments(beamGeometry, beamMaterial);
+        scene.add(beamLine);
 
         function getPos(t) {
             let x = Math.cos(t * Math.PI * 2) * 12;
@@ -53,38 +51,47 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        // Побудова спіралі
+        // SDN Вузли як Knowledge Containers (HSM)
+        const sdnPositions = [0.4, 0.85, 1.2, 1.9, 2.3];
+        const nodes = sdnPositions.map(t => {
+            const node = new THREE.Mesh(
+                new THREE.SphereGeometry(0.5, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xffcc00, wireframe: true })
+            );
+            node.position.copy(getPos(t));
+            scene.add(node);
+            return node;
+        });
+
+        // Основна спіраль
         const points = [];
         for (let t = 0; t < 2.5; t += 0.005) points.push(getPos(t));
-        helixGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x00d2ff, opacity: 0.2, transparent: true })));
-
-        // Функція бінарного кодування (Hamster World)
-        function generateSpiralWord(t) {
-            let base = Math.floor(t * 1000).toString(2);
-            let level = t > 1.5 ? "00" : "0"; // Чим вищий рівень, тим більше нулів
-            return base + level;
-        }
+        helixGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x00d2ff, opacity: 0.1, transparent: true })));
 
         function update(time) {
             const t = parseFloat(document.getElementById('time-slider').value);
             const pos = getPos(t);
             anchor.position.copy(pos);
 
-            // Оновлення Бінарного HUD
-            const word = generateSpiralWord(t);
-            document.getElementById('spiral-word').innerText = word;
-            document.getElementById('binary-hud').innerText = word;
+            // Бінарний код
+            const word = (Math.floor(t * 1024)).toString(2).padStart(12, '0');
+            document.getElementById('binary-hud').innerText = "ADDR: " + word;
 
-            // Пульсація при SDN контакті
-            sdnNodes.forEach(node => {
+            // Рівні знань HSM
+            const kLevels = ["TACIT", "EXPLICIT", "INTEGRATED", "STRATEGIC"];
+            document.getElementById('k-level').innerText = kLevels[Math.floor(t * 1.5)];
+
+            // Малювання променів до вузлів (Context Beams)
+            const beamPoints = [];
+            nodes.forEach(node => {
                 const dist = pos.distanceTo(node.position);
-                if (dist < 3) {
-                    node.scale.setScalar(1 + Math.sin(time * 0.02) * 0.5);
-                    document.getElementById('binary-hud').style.color = "#ffcc00";
-                } else {
-                    node.scale.setScalar(1);
+                if (dist < 15) { // Радіус видимості контексту
+                    beamPoints.push(pos.x, pos.y, pos.z);
+                    beamPoints.push(node.position.x, node.position.y, node.position.z);
+                    node.rotation.y += 0.05;
                 }
             });
+            beamGeometry.setAttribute('position', new THREE.Float32BufferAttribute(beamPoints, 3));
 
             camera.position.lerp(new THREE.Vector3(pos.x + 25, pos.y + 15, pos.z + 25), 0.05);
             camera.lookAt(pos);
