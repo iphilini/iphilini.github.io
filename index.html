@@ -2,107 +2,110 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX: KNOWLEDGE BEAMS ACTIVE</title>
+    <title>HELIX: VISUAL CLARITY</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
-        body { margin: 0; background: #010409; overflow: hidden; font-family: 'Courier New', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0,255,255,0.1); padding: 20px; border: 1px solid #00ffff; color: #fff; text-shadow: 0 0 5px #00ffff; }
-        #binary-hud { position: absolute; bottom: 20px; right: 20px; color: #00ff00; font-size: 18px; text-align: right; opacity: 0.7; }
-        input { width: 300px; }
+        body { margin: 0; background: #0a0e14; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(255,255,255,0.9); padding: 20px; border-radius: 12px; color: #1a202c; box-shadow: 0 10px 20px rgba(0,0,0,0.5); width: 300px; }
+        .label { position: absolute; color: white; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 4px; font-size: 12px; pointer-events: none; }
+        input { width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div id="ui">
-        > PHASE_3: SLM_CONTEXT_ACTIVE<br>
-        > KNOWLEDGE_LEVEL: <span id="k-level">INDIVIDUAL</span><br>
-        > SCAN_RADIUS: <input id="time-slider" type="range" min="0" max="2.5" step="0.001" value="0.5">
+        <b style="color: #2b6cb0;">HELIX CHRONOS v0.1</b><br>
+        <small>MODE: KNOWLEDGE SCANNER</small>
+        <hr>
+        <label>ЧАС (Timeline Pos):</label>
+        <input id="time-slider" type="range" min="0" max="2.5" step="0.001" value="0.5">
+        <div id="status" style="margin-top: 10px; font-size: 14px; font-weight: bold;"></div>
     </div>
-    <div id="binary-hud">INIT...</div>
 
     <script>
         const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a); // Глибокий синій замість чорного
+
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // --- ДОДАЄМО СВІТЛО ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0x00ffff, 1, 100);
+        scene.add(pointLight);
+
         const helixGroup = new THREE.Group();
         scene.add(helixGroup);
 
-        // Якір SLM
+        // Якір "ЗАРАЗ"
         const anchor = new THREE.Mesh(
-            new THREE.SphereGeometry(0.7, 32, 32),
-            new THREE.MeshBasicMaterial({ color: 0xff0044 })
+            new THREE.SphereGeometry(0.8, 32, 32),
+            new THREE.MeshStandardMaterial({ color: 0xff0044, emissive: 0xff0044, emissiveIntensity: 0.5 })
         );
         scene.add(anchor);
 
-        // Промені зв'язку (Beams)
-        const beamGeometry = new THREE.BufferGeometry();
-        const beamMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
-        const beamLine = new THREE.LineSegments(beamGeometry, beamMaterial);
-        scene.add(beamLine);
+        // SDN Вузли (Знання)
+        const sdnData = [
+            { t: 0.4, label: "РАНОК: ПЛАНУВАННЯ" },
+            { t: 0.85, label: "ФОКУС: РОБОТА" },
+            { t: 1.2, label: "ОБІД: ВІДПОЧИНОК" },
+            { t: 1.9, label: "АНАЛІТИКА" },
+            { t: 2.3, label: "ПІДСУМКИ ДНЯ" }
+        ];
 
-        function getPos(t) {
-            let x = Math.cos(t * Math.PI * 2) * 12;
-            let z = Math.sin(t * Math.PI * 2) * 12;
-            let y = t * 15;
-            x += Math.cos(t * Math.PI * 48) * 1.5;
-            z += Math.sin(t * Math.PI * 48) * 1.5;
-            return new THREE.Vector3(x, y, z);
-        }
-
-        // SDN Вузли як Knowledge Containers (HSM)
-        const sdnPositions = [0.4, 0.85, 1.2, 1.9, 2.3];
-        const nodes = sdnPositions.map(t => {
+        const nodes = sdnData.map(data => {
             const node = new THREE.Mesh(
-                new THREE.SphereGeometry(0.5, 16, 16),
-                new THREE.MeshBasicMaterial({ color: 0xffcc00, wireframe: true })
+                new THREE.IcosahedronGeometry(0.6, 1),
+                new THREE.MeshStandardMaterial({ color: 0xffcc00, wireframe: false, metalness: 0.8, roughness: 0.2 })
             );
-            node.position.copy(getPos(t));
+            node.userData = data;
             scene.add(node);
             return node;
         });
 
-        // Основна спіраль
-        const points = [];
-        for (let t = 0; t < 2.5; t += 0.005) points.push(getPos(t));
-        helixGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x00d2ff, opacity: 0.1, transparent: true })));
+        function getPos(t) {
+            let x = Math.cos(t * Math.PI * 2) * 15;
+            let z = Math.sin(t * Math.PI * 2) * 15;
+            let y = t * 20;
+            return new THREE.Vector3(x, y, z);
+        }
 
-        function update(time) {
+        // Спіраль
+        const points = [];
+        for (let t = 0; t < 2.5; t += 0.01) points.push(getPos(t));
+        const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(points),
+            new THREE.LineBasicMaterial({ color: 0x63b3ed, transparent: true, opacity: 0.3 })
+        );
+        helixGroup.add(line);
+
+        // Позиціонування вузлів
+        nodes.forEach(node => node.position.copy(getPos(node.userData.t)));
+
+        function update() {
             const t = parseFloat(document.getElementById('time-slider').value);
             const pos = getPos(t);
             anchor.position.copy(pos);
+            pointLight.position.copy(pos);
 
-            // Бінарний код
-            const word = (Math.floor(t * 1024)).toString(2).padStart(12, '0');
-            document.getElementById('binary-hud').innerText = "ADDR: " + word;
+            // Оновлення статусу
+            const currentTask = sdnData.find(d => Math.abs(d.t - t) < 0.1);
+            document.getElementById('status').innerText = currentTask ? "ПОДІЯ: " + currentTask.label : "ПОШУК КОНТЕКСТУ...";
+            document.getElementById('status').style.color = currentTask ? "#e53e3e" : "#2b6cb0";
 
-            // Рівні знань HSM
-            const kLevels = ["TACIT", "EXPLICIT", "INTEGRATED", "STRATEGIC"];
-            document.getElementById('k-level').innerText = kLevels[Math.floor(t * 1.5)];
-
-            // Малювання променів до вузлів (Context Beams)
-            const beamPoints = [];
-            nodes.forEach(node => {
-                const dist = pos.distanceTo(node.position);
-                if (dist < 15) { // Радіус видимості контексту
-                    beamPoints.push(pos.x, pos.y, pos.z);
-                    beamPoints.push(node.position.x, node.position.y, node.position.z);
-                    node.rotation.y += 0.05;
-                }
-            });
-            beamGeometry.setAttribute('position', new THREE.Float32BufferAttribute(beamPoints, 3));
-
-            camera.position.lerp(new THREE.Vector3(pos.x + 25, pos.y + 15, pos.z + 25), 0.05);
+            camera.position.lerp(new THREE.Vector3(pos.x + 30, pos.y + 20, pos.z + 30), 0.05);
             camera.lookAt(pos);
         }
 
-        function animate(time) {
+        function animate() {
             requestAnimationFrame(animate);
-            update(time);
+            update();
+            nodes.forEach(n => n.rotation.y += 0.01);
             renderer.render(scene, camera);
         }
-        animate(0);
+        animate();
     </script>
 </body>
 </html>
