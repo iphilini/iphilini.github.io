@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>HELIX: Hierarchy Interpolator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; background: #f8fafc; overflow: hidden; font-family: sans-serif; }
+        #controls { position: absolute; top: 20px; left: 20px; z-index: 10; width: 300px; }
+    </style>
+</head>
+<body>
+
+<div id="controls" class="bg-white/80 backdrop-blur p-6 rounded-2xl shadow-xl border border-slate-200">
+    <h1 class="text-sm font-black tracking-widest text-slate-900 mb-4 uppercase">Helix Hierarchy</h1>
+    
+    <div class="space-y-6">
+        <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase">Рівень Ієрархії (α)</label>
+            <input id="alpha" type="range" min="0" max="3" step="0.01" value="1" class="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+            <div class="flex justify-between text-[10px] mono mt-1 text-slate-400">
+                <span>Лінія</span><span>Година</span><span>Доба</span><span>Місяць</span>
+            </div>
+        </div>
+        
+        <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <p id="mode-desc" class="text-xs text-blue-700 font-medium">Режим: Годинна спіраль</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf1f5f9);
+    
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(50, 50, 50);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    
+    // ГЕОМЕТРІЯ
+    let line;
+    const MAX_POINTS = 5000;
+    
+    function getSpiralPoint(t, alpha) {
+        // t - нормалізований час (наприклад, 0..1 для години)
+        let x = t * 100 - 50; // Базова лінія (alpha = 0)
+        let y = 0;
+        let z = 0;
+        
+        // Рівень 1: Годинна спіраль (S1)
+        if (alpha > 0) {
+            const a1 = Math.min(alpha, 1.0);
+            const radius1 = 5 * a1;
+            const freq1 = 20; // Кількість витків на довжину
+            x = (t * 100 - 50) * (1 - a1*0.2); // трохи стискаємо вісь
+            y += Math.sin(t * Math.PI * 2 * freq1) * radius1;
+            z += Math.cos(t * Math.PI * 2 * freq1) * radius1;
+        }
+        
+        // Рівень 2: Денна вісь (S2)
+        if (alpha > 1) {
+            const a2 = Math.min(alpha - 1, 1.0);
+            const radius2 = 20 * a2;
+            const freq2 = 2; // Основна вісь закручується
+            
+            // Зберігаємо попередню форму (S1) і "намотуємо" її на новий радіус
+            const oldX = x;
+            const oldY = y;
+            const oldZ = z;
+            
+            x = Math.cos(t * Math.PI * 2 * freq2) * (radius2 + oldY*0.5);
+            z = Math.sin(t * Math.PI * 2 * freq2) * (radius2 + oldY*0.5);
+            y = oldX + Math.sin(t * Math.PI * 2 * freq2) * oldZ; 
+        }
+
+        // Рівень 3: Місячна/Річна (S3) - додаємо ще один рівень викривлення
+        if (alpha > 2) {
+            const a3 = Math.min(alpha - 2, 1.0);
+            const radius3 = 40 * a3;
+            const freq3 = 0.5;
+            
+            const curX = x;
+            const curY = y;
+            
+            x += Math.cos(t * Math.PI * 2 * freq3) * radius3;
+            y += Math.sin(t * Math.PI * 2 * freq3) * radius3;
+        }
+        
+        return new THREE.Vector3(x, y, z);
+    }
+
+    function updateGeometry() {
+        if (line) scene.remove(line);
+        
+        const alpha = parseFloat(document.getElementById('alpha').value);
+        const points = [];
+        const segments = 1000; 
+        
+        for (let i = 0; i <= segments; i++) {
+            points.push(getSpiralPoint(i/segments, alpha));
+        }
+        
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ 
+            color: 0x1e293b, 
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.8
+        });
+        line = new THREE.Line(geometry, material);
+        scene.add(line);
+        
+        // Опис режиму
+        const desc = document.getElementById('mode-desc');
+        if(alpha < 1) desc.innerText = "Режим: Лінійна → Годинна";
+        else if(alpha < 2) desc.innerText = "Режим: Годинна → Добова";
+        else desc.innerText = "Режим: Добова → Глобальна";
+    }
+
+    document.getElementById('alpha').oninput = updateGeometry;
+    
+    // Анімація
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    
+    updateGeometry();
+    animate();
+
+</script>
+</body>
+</html>
