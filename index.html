@@ -2,31 +2,35 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX: DATA KERNEL</title>
+    <title>HELIX: EVOLUTION</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
-        body { margin: 0; background: #00050a; overflow: hidden; font-family: 'Courier New', monospace; }
-        #hud { position: absolute; top: 20px; left: 20px; color: #00ffff; background: rgba(0,20,40,0.9); padding: 15px; border: 2px solid #00ffff; border-radius: 8px; width: 300px; z-index: 100; }
-        #clock { font-size: 24px; color: #ffcc00; margin-bottom: 10px; }
-        #binary { position: absolute; bottom: 20px; right: 20px; color: #00ff00; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #00ff00; }
-        .label { position: absolute; color: #000; background: #ffcc00; font-size: 14px; font-weight: bold; padding: 4px 10px; border-radius: 4px; pointer-events: none; box-shadow: 0 0 15px #ffcc00; }
-        .input-group { margin-top: 10px; border-top: 1px dashed #00ffff; padding-top: 10px; }
-        input { background: #000; border: 1px solid #00ffff; color: #00ffff; padding: 5px; width: 90%; margin-bottom: 5px; }
-        button { background: #ffcc00; border: none; padding: 5px 10px; cursor: pointer; font-weight: bold; width: 100%; }
-        button:hover { background: #fff; }
+        body { margin: 0; background: #00050a; overflow: hidden; font-family: 'Courier New', monospace; color: #00ffff; }
+        #hud { position: absolute; top: 20px; left: 20px; background: rgba(0,20,40,0.9); padding: 15px; border: 2px solid #00ffff; border-radius: 8px; width: 320px; z-index: 100; max-height: 90vh; overflow-y: auto; }
+        #clock { font-size: 28px; color: #ffcc00; text-shadow: 0 0 10px #ffcc00; }
+        .task-item { background: rgba(0,255,255,0.1); margin: 5px 0; padding: 8px; border-left: 4px solid #ffcc00; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .task-item button { background: #ff4444; color: white; border: none; padding: 2px 6px; cursor: pointer; border-radius: 3px; }
+        input, button#add-btn { background: #000; border: 1px solid #00ffff; color: #00ffff; padding: 8px; width: 94%; margin-top: 5px; }
+        button#add-btn { background: #ffcc00; color: #000; font-weight: bold; cursor: pointer; width: 100%; border: none; }
+        .label { position: absolute; pointer-events: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; transform: translate(-50%, -50%); }
+        #binary { position: absolute; bottom: 20px; right: 20px; color: #00ff00; font-size: 18px; opacity: 0.6; }
     </style>
 </head>
 <body>
     <div id="hud">
-        <strong>HELIX_OS_KERNEL_v2.5</strong>
+        <strong>HELIX_EVOLUTION_v3.0</strong>
         <div id="clock">00:00:00</div>
-        <div class="input-group">
-            <input id="task-name" type="text" placeholder="НАЗВА ПОДІЇ...">
+        
+        <div style="border-top: 1px solid #00ffff; margin: 10px 0; padding-top: 10px;">
+            <input id="task-name" type="text" placeholder="ЩО ТРЕБА ЗРОБИТИ?">
             <input id="task-time" type="time">
-            <button onclick="addTask()">+ ДОДАТИ НА СПІРАЛЬ</button>
+            <button id="add-btn" onclick="addTask()">ЗАФІКСУВАТИ В ЧАСІ</button>
         </div>
-        <button style="margin-top:10px; background:#00ffff;" onclick="isManual = !isManual">MODE: LIVE/MANUAL</button>
+
+        <div id="task-list-ui"></div>
+        <button style="margin-top:15px; background:none; color:#00ffff; border:1px solid #00ffff; width:100%; cursor:pointer;" onclick="isManual = !isManual">MODE: LIVE / MANUAL</button>
     </div>
+
     <div id="binary">000000000000</div>
     <div id="label-container"></div>
 
@@ -37,49 +41,71 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0x404040, 2.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
         const pointLight = new THREE.PointLight(0x00ffff, 4, 100);
         scene.add(pointLight);
+        scene.add(new THREE.GridHelper(200, 40, 0x003333, 0x001111));
 
         let isManual = false;
         let timelinePos = 0;
-        let tasks = JSON.parse(localStorage.getItem('helix_tasks')) || [];
+        let tasks = JSON.parse(localStorage.getItem('helix_tasks_v3')) || [];
 
         function getPos(t) {
-            return new THREE.Vector3(Math.cos(t * Math.PI * 2) * 18, t * 25, Math.sin(t * Math.PI * 2) * 18);
+            return new THREE.Vector3(Math.cos(t * Math.PI * 2) * 20, t * 25, Math.sin(t * Math.PI * 2) * 20);
         }
 
         // Спіраль
         const curvePoints = [];
         for(let t=0; t<3; t+=0.02) curvePoints.push(getPos(t));
         const tube = new THREE.Mesh(
-            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePoints), 120, 0.15, 8, false),
-            new THREE.MeshBasicMaterial({ color: 0x00d2ff, transparent: true, opacity: 0.4 })
+            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePoints), 150, 0.1, 8, false),
+            new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3 })
         );
         scene.add(tube);
 
-        const anchor = new THREE.Mesh(new THREE.SphereGeometry(1.4, 32, 32), new THREE.MeshPhongMaterial({color: 0xff0044, emissive: 0xff0044, emissiveIntensity: 2}));
+        const anchor = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), new THREE.MeshPhongMaterial({color: 0xff0044, emissive: 0xff0044}));
         scene.add(anchor);
 
         let nodes = [];
 
         function renderTasks() {
-            nodes.forEach(n => { scene.remove(n.mesh); n.div.remove(); });
+            nodes.forEach(n => { scene.remove(n.mesh); scene.remove(n.line); n.div.remove(); });
             nodes = [];
-            tasks.forEach(task => {
+            const listUI = document.getElementById('task-list-ui');
+            listUI.innerHTML = '';
+
+            tasks.sort((a,b) => a.time.localeCompare(b.time)).forEach((task, index) => {
                 const [h, m] = task.time.split(':').map(Number);
                 const t = (h + m/60) / 24 * 3;
-                
-                const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshStandardMaterial({color: 0xffcc00, emissive: 0xffcc00}));
-                mesh.position.copy(getPos(t));
+                const pos = getPos(t);
+
+                // Вузол
+                const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 1), new THREE.MeshStandardMaterial({color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.5}));
+                mesh.position.copy(pos);
                 scene.add(mesh);
 
+                // Вертикальний промінь до сітки
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([pos, new THREE.Vector3(pos.x, 0, pos.z)]);
+                const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({color: 0xffcc00, transparent: true, opacity: 0.2}));
+                scene.add(line);
+
+                // Мітка
                 const div = document.createElement('div');
                 div.className = 'label';
-                div.innerHTML = `[${task.time}] ${task.name}`;
+                div.style.background = '#ffcc00';
+                div.style.color = '#000';
+                div.innerHTML = task.name;
                 document.getElementById('label-container').appendChild(div);
-                nodes.push({ mesh, div, t });
+
+                // UI Елемент у списку
+                const item = document.createElement('div');
+                item.className = 'task-item';
+                item.innerHTML = `<span><b>${task.time}</b> ${task.name}</span><button onclick="removeTask(${index})">X</button>`;
+                listUI.appendChild(item);
+
+                nodes.push({ mesh, div, t, line });
             });
+            localStorage.setItem('helix_tasks_v3', JSON.stringify(tasks));
         }
 
         function addTask() {
@@ -87,14 +113,18 @@
             const time = document.getElementById('task-time').value;
             if(!name || !time) return;
             tasks.push({ name, time });
-            localStorage.setItem('helix_tasks', JSON.stringify(tasks));
             renderTasks();
             document.getElementById('task-name').value = '';
         }
 
+        function removeTask(index) {
+            tasks.splice(index, 1);
+            renderTasks();
+        }
+
         window.addEventListener('wheel', (e) => {
             if(!isManual) return;
-            timelinePos += e.deltaY * 0.0004;
+            timelinePos += e.deltaY * 0.0005;
             timelinePos = Math.max(0, Math.min(2.9, timelinePos));
         });
 
@@ -115,9 +145,10 @@
                 n.div.style.left = `${(screenPos.x + 1) * window.innerWidth / 2}px`;
                 n.div.style.top = `${(-screenPos.y + 1) * window.innerHeight / 2}px`;
                 const dist = pos.distanceTo(n.mesh.position);
-                n.div.style.opacity = dist < 20 ? 1 : 0;
+                n.div.style.opacity = dist < 25 ? 1 : 0;
+                n.mesh.rotation.y += 0.01;
             });
-            camera.position.lerp(new THREE.Vector3(pos.x + 40, pos.y + 15, pos.z + 40), 0.05);
+            camera.position.lerp(new THREE.Vector3(pos.x + 50, pos.y + 20, pos.z + 50), 0.05);
             camera.lookAt(pos);
         }
 
