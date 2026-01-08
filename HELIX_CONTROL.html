@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>HELIX CONTROL: Self-Sustaining Loop</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; background: #f8fafc; font-family: 'Outfit', sans-serif; }
+        .hud-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+<div class="absolute top-6 left-6 z-20 space-y-4">
+    <div class="bg-white/80 backdrop-blur p-6 rounded-3xl shadow-2xl border border-slate-200 w-80">
+        <h1 class="text-sm font-black text-slate-900 mb-4 tracking-tighter uppercase">System Self-Control</h1>
+        
+        <div class="space-y-6">
+            <div>
+                <div class="flex justify-between mb-2">
+                    <span class="hud-label">Inlining Depth (α)</span>
+                    <span id="alpha-val" class="text-[10px] font-bold text-blue-600">1.50</span>
+                </div>
+                <input id="alpha-slider" type="range" min="0" max="3" step="0.01" value="1.5" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none accent-blue-600">
+            </div>
+
+            <div class="p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                <p id="status" class="text-[10px] text-blue-700 font-bold leading-tight">СТАТУС: ФАЗОВА СИНХРОНІЗАЦІЯ В МЕЖАХ НОРМИ</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="canvas-container" class="w-screen h-screen"></div>
+
+<script>
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf1f5f9);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    const spiralGroup = new THREE.Group();
+    scene.add(spiralGroup);
+
+    // Геометричні константи S-рівнів
+    const S = { R3: 40, R2: 10, R1: 2.5, step: 15 };
+
+    function getPoint(t, alpha) {
+        // Базовий дрейф (час як вісь Y)
+        let x = 0, y = t * S.step, z = 0;
+
+        // S3: Річний контекст (Static Stage)
+        const a3 = Math.max(0, Math.min(alpha - 2, 1));
+        x += Math.cos(t * 0.5) * S.R3 * a3;
+        z += Math.sin(t * 0.5) * S.R3 * a3;
+
+        // S2: Денна петля (Compiled Stage)
+        const a2 = Math.max(0, Math.min(alpha - 1, 1));
+        x += Math.cos(t * 6.28) * S.R2 * a2;
+        z += Math.sin(t * 6.28) * S.R2 * a2;
+
+        // S1: Годинна фаза (Runtime Stage - "Сходинки")
+        const a1 = Math.max(0, Math.min(alpha, 1));
+        const segments = 24; // Кількість сходинок на виток
+        const steppedT = Math.floor(t * segments) / segments;
+        
+        // Інтерполяція між сходинками та гладкою кривою
+        const smoothT = t;
+        const finalT = steppedT * a1 + smoothT * (1 - a1);
+
+        x += Math.cos(t * 150) * S.R1 * a1;
+        z += Math.sin(t * 150) * S.R1 * a1;
+
+        return new THREE.Vector3(x, y, z);
+    }
+
+    function build() {
+        spiralGroup.clear();
+        const alpha = parseFloat(document.getElementById('alpha-slider').value);
+        document.getElementById('alpha-val').innerText = alpha.toFixed(2);
+        
+        const points = [];
+        const samples = 2000;
+        for (let i = 0; i < samples; i++) {
+            points.push(getPoint(i/100, alpha));
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ 
+            color: 0x1e293b, 
+            transparent: true, 
+            opacity: 0.5 + (alpha * 0.1) 
+        });
+        const line = new THREE.Line(geometry, material);
+        spiralGroup.add(line);
+    }
+
+    document.getElementById('alpha-slider').oninput = build;
+    camera.position.set(80, 80, 80);
+    camera.lookAt(0, 30, 0);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        spiralGroup.rotation.y += 0.001;
+        renderer.render(scene, camera);
+    }
+
+    build();
+    animate();
+</script>
+</body>
+</html>
