@@ -2,117 +2,89 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HELIX: INTELLIGENCE v6.0</title>
+    <title>HELIX: SOVEREIGN v7.0</title>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <style>
-        body { margin: 0; background: #00050a; overflow: hidden; font-family: 'Courier New', monospace; color: #00ffff; }
-        #hud { position: absolute; top: 20px; left: 20px; background: rgba(0,20,40,0.95); padding: 15px; border: 2px solid #00ffff; border-radius: 8px; width: 330px; z-index: 100; box-shadow: 0 0 30px rgba(0,255,255,0.2); }
+        body { margin: 0; background: #000408; overflow: hidden; font-family: 'Courier New', monospace; color: #00ffff; }
+        #hud { position: absolute; top: 20px; left: 20px; background: rgba(0,15,30,0.9); padding: 20px; border: 1px solid #00ffff; border-radius: 4px; width: 320px; z-index: 100; box-shadow: 0 0 20px rgba(0,255,255,0.1); }
         
-        /* Елементи Інтелекту */
-        #intel-bar { height: 4px; background: #111; width: 100%; margin: 10px 0; border-radius: 2px; overflow: hidden; }
-        #intel-progress { height: 100%; width: 0%; background: #00ff88; transition: width 0.5s ease; box-shadow: 0 0 10px #00ff88; }
-        #gap-analyzer { font-size: 11px; color: #ffcc00; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        #intel-bar { height: 2px; background: #111; width: 100%; margin: 10px 0; }
+        #intel-progress { height: 100%; width: 0%; background: #00ff88; box-shadow: 0 0 10px #00ff88; transition: width 1s; }
+        #gap-analyzer { font-size: 10px; color: #ffcc00; margin-bottom: 10px; height: 15px; }
         
-        .clock-label { font-size: 10px; color: #00aaaa; letter-spacing: 2px; }
-        #real-clock { font-size: 24px; color: #ffffff; }
-        #virtual-clock { font-size: 32px; color: #ffcc00; text-shadow: 0 0 15px #ffcc00; }
+        #real-clock { font-size: 22px; color: #fff; opacity: 0.8; }
+        #virtual-clock { font-size: 36px; color: #ffcc00; text-shadow: 0 0 15px rgba(255,204,0,0.5); }
         
-        .task-item { background: rgba(0,255,255,0.05); margin: 5px 0; padding: 10px; border-left: 4px solid #444; font-size: 12px; transition: all 0.3s; cursor: pointer; display: flex; justify-content: space-between; }
-        .task-done { border-left-color: #00ff88 !important; opacity: 0.5; }
+        .task-list { max-height: 250px; overflow-y: auto; margin-top: 10px; border-top: 1px solid #111; }
+        .task-item { background: rgba(0,255,255,0.03); margin: 4px 0; padding: 8px; font-size: 11px; display: flex; justify-content: space-between; border-left: 2px solid #333; cursor: pointer; }
+        .task-done { border-left-color: #00ff88; color: #00ff88; opacity: 0.5; }
         
-        .controls { border-top: 1px solid #00ffff; margin-top: 10px; padding-top: 10px; }
-        input { background: #000; border: 1px solid #333; color: #00ffff; padding: 8px; width: 90%; margin-bottom: 5px; }
-        button { background: #00ffff; color: #000; border: none; padding: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
-        
-        .label { position: absolute; pointer-events: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; transform: translate(-50%, -50%); }
+        .io-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px; }
+        input, button { background: #000; border: 1px solid #00ffff; color: #00ffff; padding: 6px; font-family: 'Courier New'; font-size: 12px; }
+        button { cursor: pointer; transition: 0.2s; }
+        button:hover { background: #00ffff; color: #000; }
+        .label { position: absolute; pointer-events: none; padding: 2px 6px; background: rgba(0,0,0,0.8); border: 1px solid #ffcc00; color: #ffcc00; font-size: 12px; transform: translate(-50%, -100%); }
     </style>
 </head>
 <body>
     <div id="hud">
-        <div id="mode-tag" style="float:right; font-size:10px; padding:2px 5px; background:#ff0044; color:#fff;">LIVE</div>
-        <strong>HELIX_INTELLIGENCE_v6.0</strong>
-        
+        <div style="font-size: 10px; opacity: 0.5;">HELIX_OS_SOVEREIGN_v7.0</div>
         <div id="intel-bar"><div id="intel-progress"></div></div>
-        <div id="gap-analyzer">INITIALIZING_ANALYTICS...</div>
+        <div id="gap-analyzer">SCANNING_TIMELINE...</div>
         
-        <div class="clock-label">REAL_TIME</div>
-        <div id="real-clock">00:00:00</div>
-        <div class="clock-label">VIRTUAL_FOCUS</div>
         <div id="virtual-clock">00:00:00</div>
+        <div id="real-clock">00:00:00</div>
         
-        <div class="controls">
-            <input id="task-name" type="text" placeholder="NEW_OBJECTIVE...">
-            <input id="task-time" type="time">
-            <button onclick="addTask()">INTEGRATE_TO_HELIX</button>
+        <div style="margin-top:15px;">
+            <input id="task-name" type="text" placeholder="OBJECTIVE_NAME" style="width: 60%;">
+            <input id="task-time" type="time" style="width: 25%;">
+            <button onclick="addTask()" style="width: 100%; margin-top: 5px; background: #ffcc00; color: #000;">+ INTEGRATE</button>
         </div>
 
-        <div id="task-list-ui" style="margin-top:10px;"></div>
-        <button style="background:none; color:#00ffff; border:1px solid #00ffff;" onclick="toggleMode()">TOGGLE_MANUAL_FOCUS</button>
+        <div class="task-list" id="task-list-ui"></div>
+        
+        <div class="io-btns">
+            <button onclick="exportData()">SAVE_DISK</button>
+            <button onclick="importData()">LOAD_DISK</button>
+        </div>
+        <button onclick="toggleMode()" style="width:100%; margin-top:5px; font-size:10px;">TOGGLE_AUTO_ORBIT</button>
     </div>
     <div id="label-container"></div>
 
     <script>
         const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000408, 0.012);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-        const pointLight = new THREE.PointLight(0x00ffff, 5, 120);
-        scene.add(pointLight);
-        scene.add(new THREE.GridHelper(200, 50, 0x001122, 0x001122));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+        const pLight = new THREE.PointLight(0x00ffff, 3, 150);
+        scene.add(pLight);
+        scene.add(new THREE.GridHelper(400, 80, 0x001525, 0x000510));
 
-        let isManual = false;
-        let timelinePos = 0;
-        let tasks = JSON.parse(localStorage.getItem('helix_tasks_v6')) || [];
+        let isManual = false, timelinePos = 0;
+        let tasks = JSON.parse(localStorage.getItem('helix_v7_data')) || [];
 
         function getPos(t) {
-            return new THREE.Vector3(Math.cos(t * Math.PI * 2) * 20, t * 25, Math.sin(t * Math.PI * 2) * 20);
+            const r = 22;
+            return new THREE.Vector3(Math.cos(t * Math.PI * 2) * r, t * 25, Math.sin(t * Math.PI * 2) * r);
         }
 
-        // Побудова спіралі
+        // Спіраль
         const curvePoints = [];
-        for(let t=0; t<3.1; t+=0.02) curvePoints.push(getPos(t));
+        for(let t=0; t<3.5; t+=0.02) curvePoints.push(getPos(t));
         const tube = new THREE.Mesh(
-            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePoints), 160, 0.08, 8, false),
-            new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.15 })
+            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePoints), 200, 0.06, 8, false),
+            new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.1 })
         );
         scene.add(tube);
 
-        const anchor = new THREE.Mesh(new THREE.SphereGeometry(1.6, 32, 32), new THREE.MeshPhongMaterial({color: 0xff0044, emissive: 0xff0044, emissiveIntensity: 2}));
+        const anchor = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), new THREE.MeshPhongMaterial({color: 0xff0044, emissive: 0xff0044}));
         scene.add(anchor);
 
         let nodes = [];
-
-        function updateIntelligence() {
-            if (tasks.length === 0) return;
-            const doneTasks = tasks.filter(t => t.done).length;
-            const progress = (doneTasks / tasks.length) * 100;
-            document.getElementById('intel-progress').style.width = `${progress}%`;
-
-            const now = new Date();
-            const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
-            
-            let nextTask = tasks
-                .filter(t => !t.done)
-                .map(t => {
-                    const [h, m] = t.time.split(':').map(Number);
-                    return { ...t, minutes: h * 60 + m };
-                })
-                .filter(t => t.minutes > currentTimeInMinutes)
-                .sort((a, b) => a.minutes - b.minutes)[0];
-
-            const analyzer = document.getElementById('gap-analyzer');
-            if (nextTask) {
-                const diff = nextTask.minutes - currentTimeInMinutes;
-                if (diff <= 15) analyzer.innerText = `READY_STATE: ${nextTask.name} IN ${diff} MIN`;
-                else if (diff > 60) analyzer.innerText = `DEEP_FOCUS_WINDOW: ${Math.floor(diff/60)}H ${diff%60}M FREE`;
-                else analyzer.innerText = `NEXT: ${nextTask.name} (${diff} MIN)`;
-            } else {
-                analyzer.innerText = "ALL_OBJECTIVES_ROUTED";
-            }
-        }
 
         function renderTasks() {
             nodes.forEach(n => { scene.remove(n.mesh); n.div.remove(); });
@@ -120,108 +92,108 @@
             const listUI = document.getElementById('task-list-ui');
             listUI.innerHTML = '';
 
-            tasks.sort((a,b) => a.time.localeCompare(b.time)).forEach((task, index) => {
+            tasks.sort((a,b) => a.time.localeCompare(b.time)).forEach((task, i) => {
                 const [h, m] = task.time.split(':').map(Number);
                 const t = (h + m/60) / 24 * 3;
-                const pos = getPos(t);
-
-                let nodeColor = task.done ? 0x00ff88 : 0xffcc00;
-                const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1.3, 1), new THREE.MeshStandardMaterial({color: nodeColor, emissive: nodeColor, emissiveIntensity: 0.5}));
-                mesh.position.copy(pos);
+                const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(1), new THREE.MeshStandardMaterial({color: task.done ? 0x00ff88 : 0xffcc00, emissive: task.done ? 0x00ff88 : 0xffcc00, emissiveIntensity: 0.5}));
+                mesh.position.copy(getPos(t));
                 scene.add(mesh);
 
                 const div = document.createElement('div');
                 div.className = 'label';
-                div.style.background = task.done ? '#00ff88' : '#ffcc00';
                 div.innerHTML = task.name;
                 document.getElementById('label-container').appendChild(div);
 
                 const item = document.createElement('div');
                 item.className = `task-item ${task.done ? 'task-done' : ''}`;
-                item.innerHTML = `<span><b>${task.time}</b> ${task.name}</span><button onclick="event.stopPropagation(); removeTask(${index})" style="background:none; border:none; color:#ff4444; cursor:pointer;">X</button>`;
-                item.onclick = () => focusTask(index);
-                item.oncontextmenu = (e) => { e.preventDefault(); toggleDone(index); };
+                item.innerHTML = `<span>${task.time} ${task.name}</span><span onclick="event.stopPropagation(); removeTask(${i})">✖</span>`;
+                item.onclick = () => { isManual = true; timelinePos = t; };
+                item.oncontextmenu = (e) => { e.preventDefault(); tasks[i].done = !tasks[i].done; renderTasks(); };
                 listUI.appendChild(item);
 
-                nodes.push({ mesh, div, t, id: index });
+                nodes.push({ mesh, div, t, id: i });
             });
-            localStorage.setItem('helix_tasks_v6', JSON.stringify(tasks));
-            updateIntelligence();
+            localStorage.setItem('helix_v7_data', JSON.stringify(tasks));
+            updateIntel();
+        }
+
+        function updateIntel() {
+            const done = tasks.filter(t => t.done).length;
+            document.getElementById('intel-progress').style.width = tasks.length ? `${(done/tasks.length)*100}%` : '0%';
+            
+            const now = new Date();
+            const nowMin = now.getHours() * 60 + now.getMinutes();
+            const next = tasks.filter(t => !t.done).map(t => {
+                const [h, m] = t.time.split(':').map(Number);
+                return { ...t, min: h*60+m };
+            }).filter(t => t.min > nowMin).sort((a,b) => a.min - b.min)[0];
+
+            const gap = document.getElementById('gap-analyzer');
+            if (next) {
+                const d = next.min - nowMin;
+                gap.innerText = d < 20 ? `!!! PREPARE: ${next.name} !!!` : `NEXT: ${next.name} IN ${d}m`;
+                gap.style.color = d < 20 ? "#ff4444" : "#ffcc00";
+            } else gap.innerText = "NO_PENDING_OBJECTIVES";
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "helix_plan.json");
+            dlAnchorElem.click();
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    tasks = JSON.parse(event.target.result);
+                    renderTasks();
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
 
         function addTask() {
-            const name = document.getElementById('task-name').value;
-            const time = document.getElementById('task-time').value;
-            if(!name || !time) return;
-            tasks.push({ name, time, done: false });
-            renderTasks();
-            document.getElementById('task-name').value = '';
+            const n = document.getElementById('task-name').value;
+            const t = document.getElementById('task-time').value;
+            if(n && t) { tasks.push({name: n, time: t, done: false}); renderTasks(); }
         }
 
-        function removeTask(index) {
-            tasks.splice(index, 1);
-            renderTasks();
-        }
+        function removeTask(i) { tasks.splice(i, 1); renderTasks(); }
+        function toggleMode() { isManual = !isManual; }
 
-        function toggleDone(index) {
-            tasks[index].done = !tasks[index].done;
-            renderTasks();
-        }
-
-        function focusTask(index) {
-            isManual = true;
-            document.getElementById('mode-tag').innerText = "MANUAL";
-            document.getElementById('mode-tag').style.background = "#00ffff";
-            timelinePos = nodes.find(n => n.id === index).t;
-        }
-
-        function toggleMode() {
-            isManual = !isManual;
-            document.getElementById('mode-tag').innerText = isManual ? "MANUAL" : "LIVE";
-            document.getElementById('mode-tag').style.background = isManual ? "#00ffff" : "#ff0044";
-        }
-
-        window.addEventListener('wheel', (e) => {
-            if(!isManual) return;
-            timelinePos = (timelinePos + e.deltaY * 0.0005 + 3) % 3;
-        });
+        window.addEventListener('wheel', (e) => { if(isManual) timelinePos = (timelinePos + e.deltaY * 0.0006 + 3.5) % 3.5; });
 
         function update() {
             const now = new Date();
             document.getElementById('real-clock').innerText = now.toTimeString().split(' ')[0];
-            if (!isManual) {
-                const h = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
-                timelinePos = (h / 24) * 3;
-            }
+            if(!isManual) timelinePos = ((now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600) / 24) * 3;
             
-            const vTime = (timelinePos / 3) * 24;
-            const vH = Math.floor(vTime);
-            const vM = Math.floor((vTime - vH) * 60);
+            const vH = Math.floor((timelinePos/3)*24), vM = Math.floor(((timelinePos/3)*24 - vH)*60);
             document.getElementById('virtual-clock').innerText = `${vH.toString().padStart(2,'0')}:${vM.toString().padStart(2,'0')}:00`;
 
             const pos = getPos(timelinePos);
             anchor.position.copy(pos);
-            pointLight.position.copy(pos);
+            pLight.position.copy(pos);
 
-            const nowMin = now.getHours() * 60 + now.getMinutes();
             nodes.forEach(n => {
-                const screenPos = n.mesh.position.clone().project(camera);
-                n.div.style.left = `${(screenPos.x + 1) * window.innerWidth / 2}px`;
-                n.div.style.top = `${(-screenPos.y + 1) * window.innerHeight / 2}px`;
-                const d = pos.distanceTo(n.mesh.position);
-                n.div.style.opacity = d < 25 ? (1 - d/25) : 0;
-                
-                // Пульсація активних вузлів (майбутні в межах 30 хв)
-                const taskMin = n.t / 3 * 24 * 60;
-                if (taskMin > nowMin && taskMin - nowMin < 30 && !tasks[n.id].done) {
-                    n.mesh.scale.setScalar(1.3 + Math.sin(Date.now() * 0.005) * 0.3);
-                } else {
-                    n.mesh.scale.setScalar(1);
-                }
+                const sPos = n.mesh.position.clone().project(camera);
+                n.div.style.left = `${(sPos.x + 1) * window.innerWidth / 2}px`;
+                n.div.style.top = `${(-sPos.y + 1) * window.innerHeight / 2}px`;
+                const dist = pos.distanceTo(n.mesh.position);
+                n.div.style.opacity = dist < 20 ? (1 - dist/20) : 0;
+                n.mesh.rotation.y += 0.02;
+                if(dist < 5 && !tasks[n.id].done) n.mesh.scale.setScalar(1.2 + Math.sin(Date.now()*0.005)*0.2);
+                else n.mesh.scale.setScalar(1);
             });
-            camera.position.lerp(new THREE.Vector3(pos.x + 45, pos.y + 15, pos.z + 45), 0.05);
+            camera.position.lerp(new THREE.Vector3(pos.x + 40, pos.y + 12, pos.z + 40), 0.05);
             camera.lookAt(pos);
-            updateIntelligence();
         }
 
         renderTasks();
