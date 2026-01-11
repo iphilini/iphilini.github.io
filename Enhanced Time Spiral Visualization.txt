@@ -1,0 +1,934 @@
+﻿import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+
+
+const TimeSpiralVisualization = () => {
+  const mountRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [controls, setControls] = useState({
+    autoRotate: false,
+    showS0: true,
+    showS1: true,
+    showS2: true,
+    showS3: true,
+    hoursPerDay: 24,
+    daysPerMonth: 7,
+    monthsPerYear: 12,
+    numberOfYears: 3
+  });
+
+
+  useEffect(() => {
+    const container = mountRef.current;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a1a);
+    scene.fog = new THREE.Fog(0x0a0a1a, 50, 250);
+
+
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera.position.set(0, 50, 150);
+    camera.lookAt(0, 0, 0);
+
+
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      powerPreference: "high-performance",
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(width, height);
+    container.appendChild(renderer.domElement);
+
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+
+    const pointLight1 = new THREE.PointLight(0x6699ff, 1.2);
+    pointLight1.position.set(40, 40, 40);
+    scene.add(pointLight1);
+
+
+    const pointLight2 = new THREE.PointLight(0xff6699, 0.8);
+    pointLight2.position.set(-40, -40, -40);
+    scene.add(pointLight2);
+
+
+    const pointLight3 = new THREE.PointLight(0xffaa33, 0.6);
+    pointLight3.position.set(0, 80, 0);
+    scene.add(pointLight3);
+
+
+    // Parameters
+    const hoursPerDay = controls.hoursPerDay;
+    const daysPerMonth = controls.daysPerMonth;
+    const monthsPerYear = controls.monthsPerYear;
+    const numberOfYears = controls.numberOfYears;
+    
+    // Radii for each level
+    const yearRadius = 25;      // S3 - річна спіраль
+    const monthRadius = 8;      // S2 - місячна спіраль (відносно S3)
+    const dayRadius = 2.5;      // S1 - денна спіраль (відносно S2)
+    const hourRadius = 0.8;     // S0 - годинна спіраль (відносно S1)
+    
+    // Heights
+    const yearHeight = 20;      // висота на 1 рік
+    const totalHeight = yearHeight * numberOfYears;
+    
+    // Turns
+    const yearTurns = numberOfYears;
+    const totalMonths = monthsPerYear * numberOfYears;
+    const totalDays = daysPerMonth * monthsPerYear * numberOfYears;
+    const totalHours = hoursPerDay * daysPerMonth * monthsPerYear * numberOfYears;
+    
+    const segmentsPerHour = 20;
+    const totalSegments = totalHours * segmentsPerHour;
+
+
+    // S3 - Year spiral (green) - обертається навколо центральної осі
+    const s3Points = [];
+    for (let i = 0; i <= 500; i++) {
+      const t = i / 500;
+      const yearAngle = t * 2 * Math.PI * yearTurns;
+      const x = Math.cos(yearAngle) * yearRadius;
+      const y = (t - 0.5) * totalHeight;
+      const z = Math.sin(yearAngle) * yearRadius;
+      s3Points.push(new THREE.Vector3(x, y, z));
+    }
+    
+    const s3Geometry = new THREE.BufferGeometry().setFromPoints(s3Points);
+    const s3Material = new THREE.LineBasicMaterial({ 
+      color: 0x00ff00,
+      linewidth: 4
+    });
+    const s3Spiral = new THREE.Line(s3Geometry, s3Material);
+    s3Spiral.name = 'S3';
+    scene.add(s3Spiral);
+
+
+    // Helper function to get position on S3 (year spiral)
+    const getS3Position = (t) => {
+      const yearAngle = t * 2 * Math.PI * yearTurns;
+      return {
+        x: Math.cos(yearAngle) * yearRadius,
+        y: (t - 0.5) * totalHeight,
+        z: Math.sin(yearAngle) * yearRadius
+      };
+    };
+
+
+    // Helper function to get Frenet frame on S3
+    const getS3Frame = (t) => {
+      const dt = 0.001;
+      const curr = getS3Position(t);
+      const next = getS3Position(t + dt);
+      
+      const tangent = new THREE.Vector3(
+        next.x - curr.x,
+        next.y - curr.y,
+        next.z - curr.z
+      ).normalize();
+      
+      const up = new THREE.Vector3(0, 1, 0);
+      const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+      const binormal = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+      
+      return { center: curr, tangent, normal, binormal };
+    };
+
+
+    // S2 - Month spiral (blue) - обертається навколо S3
+    const s2Points = [];
+    const s2Segments = 1000;
+    for (let i = 0; i <= s2Segments; i++) {
+      const t = i / s2Segments;
+      const monthProgress = t * totalMonths;
+      
+      // Position on year spiral
+      const yearT = t;
+      const frame = getS3Frame(yearT);
+      
+      // Angle for month rotation around year spiral
+      const monthAngle = monthProgress * 2 * Math.PI;
+      
+      const localX = Math.cos(monthAngle) * monthRadius;
+      const localY = Math.sin(monthAngle) * monthRadius;
+      
+      const x = frame.center.x + frame.normal.x * localX + frame.binormal.x * localY;
+      const y = frame.center.y + frame.normal.y * localX + frame.binormal.y * localY;
+      const z = frame.center.z + frame.normal.z * localX + frame.binormal.z * localY;
+      
+      s2Points.push(new THREE.Vector3(x, y, z));
+    }
+    
+    const s2Geometry = new THREE.BufferGeometry().setFromPoints(s2Points);
+    const s2Material = new THREE.LineBasicMaterial({ 
+      color: 0x0066ff,
+      linewidth: 3
+    });
+    const s2Spiral = new THREE.Line(s2Geometry, s2Material);
+    s2Spiral.name = 'S2';
+    scene.add(s2Spiral);
+
+
+    // Helper function to get position on S2 (month spiral)
+    const getS2Position = (t) => {
+      const monthProgress = t * totalMonths;
+      const yearT = t;
+      const frame = getS3Frame(yearT);
+      
+      const monthAngle = monthProgress * 2 * Math.PI;
+      const localX = Math.cos(monthAngle) * monthRadius;
+      const localY = Math.sin(monthAngle) * monthRadius;
+      
+      return {
+        x: frame.center.x + frame.normal.x * localX + frame.binormal.x * localY,
+        y: frame.center.y + frame.normal.y * localX + frame.binormal.y * localY,
+        z: frame.center.z + frame.normal.z * localX + frame.binormal.z * localY
+      };
+    };
+
+
+    // Helper function to get Frenet frame on S2
+    const getS2Frame = (t) => {
+      const dt = 0.0001;
+      const curr = getS2Position(t);
+      const next = getS2Position(Math.min(t + dt, 1));
+      
+      const tangent = new THREE.Vector3(
+        next.x - curr.x,
+        next.y - curr.y,
+        next.z - curr.z
+      ).normalize();
+      
+      const up = new THREE.Vector3(0, 1, 0);
+      const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+      const binormal = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+      
+      return { center: curr, tangent, normal, binormal };
+    };
+
+
+    // S1 - Day spiral (red) - обертається навколо S2
+    const s1Points = [];
+    const s1Segments = 800;
+    for (let i = 0; i <= s1Segments; i++) {
+      const t = i / s1Segments;
+      const dayProgress = t * totalDays;
+      
+      const frame = getS2Frame(t);
+      
+      const dayAngle = dayProgress * 2 * Math.PI;
+      const localX = Math.cos(dayAngle) * dayRadius;
+      const localY = Math.sin(dayAngle) * dayRadius;
+      
+      const x = frame.center.x + frame.normal.x * localX + frame.binormal.x * localY;
+      const y = frame.center.y + frame.normal.y * localX + frame.binormal.y * localY;
+      const z = frame.center.z + frame.normal.z * localX + frame.binormal.z * localY;
+      
+      s1Points.push(new THREE.Vector3(x, y, z));
+    }
+
+
+    const s1Geometry = new THREE.BufferGeometry().setFromPoints(s1Points);
+    const s1Material = new THREE.LineBasicMaterial({ 
+      color: 0xff0000,
+      linewidth: 2
+    });
+    const s1Spiral = new THREE.Line(s1Geometry, s1Material);
+    s1Spiral.name = 'S1';
+    scene.add(s1Spiral);
+
+
+    // Helper function to get position on S1 (day spiral)
+    const getS1Position = (t) => {
+      const dayProgress = t * totalDays;
+      const frame = getS2Frame(t);
+      
+      const dayAngle = dayProgress * 2 * Math.PI;
+      const localX = Math.cos(dayAngle) * dayRadius;
+      const localY = Math.sin(dayAngle) * dayRadius;
+      
+      return {
+        x: frame.center.x + frame.normal.x * localX + frame.binormal.x * localY,
+        y: frame.center.y + frame.normal.y * localX + frame.binormal.y * localY,
+        z: frame.center.z + frame.normal.z * localX + frame.binormal.z * localY
+      };
+    };
+
+
+    // Helper function to get Frenet frame on S1
+    const getS1Frame = (t) => {
+      const dt = 0.00001;
+      const curr = getS1Position(t);
+      const next = getS1Position(Math.min(t + dt, 1));
+      
+      const tangent = new THREE.Vector3(
+        next.x - curr.x,
+        next.y - curr.y,
+        next.z - curr.z
+      ).normalize();
+      
+      const up = new THREE.Vector3(0, 1, 0);
+      const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+      const binormal = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+      
+      return { center: curr, tangent, normal, binormal };
+    };
+
+
+    // S0 - Hour spiral (yellow) - обертається навколо S1
+    const s0Points = [];
+    for (let i = 0; i <= totalSegments; i++) {
+      const t = i / totalSegments;
+      const hourProgress = t * totalHours;
+      
+      const frame = getS1Frame(t);
+      
+      const hourAngle = hourProgress * 2 * Math.PI;
+      const localX = Math.cos(hourAngle) * hourRadius;
+      const localY = Math.sin(hourAngle) * hourRadius;
+      
+      const x = frame.center.x + frame.normal.x * localX + frame.binormal.x * localY;
+      const y = frame.center.y + frame.normal.y * localX + frame.binormal.y * localY;
+      const z = frame.center.z + frame.normal.z * localX + frame.binormal.z * localY;
+      
+      s0Points.push(new THREE.Vector3(x, y, z));
+    }
+
+
+    const s0Geometry = new THREE.BufferGeometry().setFromPoints(s0Points);
+    const s0Material = new THREE.LineBasicMaterial({ 
+      color: 0xffff00,
+      linewidth: 1
+    });
+    const s0Spiral = new THREE.Line(s0Geometry, s0Material);
+    s0Spiral.name = 'S0';
+    scene.add(s0Spiral);
+
+
+    // Year markers on S3
+    const createMarker = (year, label, color) => {
+      const t = year / numberOfYears;
+      if (t >= 0 && t <= 1) {
+        const pos = getS3Position(t);
+        
+        const glowGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+        const glowMaterial = new THREE.MeshBasicMaterial({ 
+          color: color,
+          transparent: true,
+          opacity: 0.3
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.set(pos.x, pos.y, pos.z);
+        scene.add(glow);
+        
+        const markerGeometry = new THREE.SphereGeometry(1, 16, 16);
+        const markerMaterial = new THREE.MeshStandardMaterial({ 
+          color: color,
+          emissive: color,
+          emissiveIntensity: 0.5,
+          metalness: 0.8,
+          roughness: 0.2
+        });
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        marker.position.set(pos.x, pos.y, pos.z);
+        scene.add(marker);
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 64;
+        ctx.fillStyle = color;
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, 128, 32);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ 
+          map: texture,
+          transparent: true
+        });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.position.set(pos.x, pos.y + 4, pos.z);
+        sprite.scale.set(6, 1.5, 1);
+        scene.add(sprite);
+      }
+    };
+
+
+    if (numberOfYears <= 5) {
+      for (let i = 0; i <= numberOfYears; i++) {
+        createMarker(i, `Рік ${i}`, `hsl(${i * 60}, 80%, 60%)`);
+      }
+    } else {
+      createMarker(0, 'Початок', '#ffff00');
+      createMarker(Math.floor(numberOfYears / 2), `Рік ${Math.floor(numberOfYears / 2)}`, '#ff00ff');
+      createMarker(numberOfYears, 'Кінець', '#00ffff');
+    }
+
+
+    // Mouse and touch controls
+    let isMouseDragging = false;
+    let isDragging = false;
+    let previousMouseX = 0;
+    let previousMouseY = 0;
+    let previousTouchX = 0;
+    let previousTouchY = 0;
+    let rotationX = 0;
+    let rotationY = 0;
+    let velocityX = 0;
+    let velocityY = 0;
+    let zoom = 150;
+
+
+    const onMouseDown = (e) => {
+      isMouseDragging = true;
+      previousMouseX = e.clientX;
+      previousMouseY = e.clientY;
+    };
+
+
+    const onMouseMove = (e) => {
+      if (isMouseDragging) {
+        const deltaX = e.clientX - previousMouseX;
+        const deltaY = e.clientY - previousMouseY;
+        
+        velocityX = deltaX * 0.01;
+        velocityY = deltaY * 0.01;
+        
+        rotationY += velocityX;
+        rotationX += velocityY;
+        rotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX));
+        
+        previousMouseX = e.clientX;
+        previousMouseY = e.clientY;
+      }
+    };
+
+
+    const onMouseUp = () => {
+      isMouseDragging = false;
+    };
+
+
+    const onWheel = (e) => {
+      e.preventDefault();
+      zoom += e.deltaY * 0.1;
+      zoom = Math.max(50, Math.min(300, zoom));
+    };
+
+
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        previousTouchX = e.touches[0].clientX;
+        previousTouchY = e.touches[0].clientY;
+        velocityX = 0;
+        velocityY = 0;
+      }
+    };
+
+
+    const onTouchMove = (e) => {
+      if (isDragging && e.touches.length === 1) {
+        e.preventDefault();
+        const touchX = e.touches[0].clientX;
+        const touchY = e.touches[0].clientY;
+        
+        const deltaX = touchX - previousTouchX;
+        const deltaY = touchY - previousTouchY;
+        
+        velocityX = deltaX * 0.01;
+        velocityY = deltaY * 0.01;
+        
+        rotationY += velocityX;
+        rotationX += velocityY;
+        rotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX));
+        
+        previousTouchX = touchX;
+        previousTouchY = touchY;
+      }
+    };
+
+
+    const onTouchEnd = () => {
+      isDragging = false;
+    };
+
+
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+
+    setIsLoading(false);
+
+
+    // Animation
+    let autoRotateSpeed = 0;
+    const animate = () => {
+      requestAnimationFrame(animate);
+
+
+      if (!isMouseDragging && !isDragging) {
+        if (Math.abs(velocityX) > 0.001 || Math.abs(velocityY) > 0.001) {
+          rotationY += velocityX;
+          rotationX += velocityY;
+          rotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX));
+          velocityX *= 0.95;
+          velocityY *= 0.95;
+        }
+        
+        if (controls.autoRotate) {
+          autoRotateSpeed += 0.005;
+          rotationY = autoRotateSpeed;
+        }
+      }
+      
+      scene.rotation.y = rotationY;
+      scene.rotation.x = rotationX;
+
+
+      camera.position.z += (zoom - camera.position.z) * 0.1;
+
+
+      const time = Date.now() * 0.001;
+      pointLight1.position.x = Math.cos(time * 0.5) * 40;
+      pointLight1.position.z = Math.sin(time * 0.5) * 40;
+
+
+      s0Spiral.visible = controls.showS0;
+      s1Spiral.visible = controls.showS1;
+      s2Spiral.visible = controls.showS2;
+      s3Spiral.visible = controls.showS3;
+
+
+      renderer.render(scene, camera);
+    };
+
+
+    animate();
+
+
+    const handleResize = () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    };
+
+
+    window.addEventListener('resize', handleResize);
+
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('mousedown', onMouseDown);
+      renderer.domElement.removeEventListener('wheel', onWheel);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
+      container.removeChild(renderer.domElement);
+      renderer.dispose();
+    };
+  }, [controls]);
+
+
+  return (
+    <div style={{ 
+      width: '100vw', 
+      height: '100vh', 
+      overflow: 'hidden',
+      position: 'relative',
+      background: 'linear-gradient(to bottom, #0a0a1a, #1a0a2a)'
+    }}>
+      <div ref={mountRef} style={{ 
+        width: '100%',
+        height: '100%'
+      }} />
+      
+      {isLoading && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: 'white',
+          fontSize: '24px',
+          fontFamily: 'Arial, sans-serif'
+        }}>
+          Завантаження...
+        </div>
+      )}
+      
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '10px',
+        color: 'white',
+        fontFamily: 'Arial, sans-serif',
+        background: 'rgba(0, 0, 0, 0.5)',
+        padding: '8px',
+        borderRadius: '6px',
+        backdropFilter: 'blur(10px)',
+        maxWidth: '140px'
+      }}>
+        <h2 style={{ margin: '0 0 5px 0', fontSize: '11px' }}>Спіраль Часу</h2>
+        <p style={{ margin: '2px 0', fontSize: '8px' }}>🖱️ Перетягніть</p>
+        <p style={{ margin: '2px 0', fontSize: '8px' }}>🔍 Прокрутіть</p>
+        <div style={{ marginTop: '8px' }}>
+          <label style={{ display: 'block', marginBottom: '4px', fontSize: '7px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={controls.autoRotate}
+              onChange={(e) => setControls({...controls, autoRotate: e.target.checked})}
+              style={{ marginRight: '3px', transform: 'scale(0.7)' }}
+            />
+            Авто
+          </label>
+          <label style={{ display: 'block', marginBottom: '3px', fontSize: '7px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={controls.showS0}
+              onChange={(e) => setControls({...controls, showS0: e.target.checked})}
+              style={{ marginRight: '3px', transform: 'scale(0.7)' }}
+            />
+            <span style={{ color: '#ffff00' }}>●</span> S0 (Годинна)
+          </label>
+          <label style={{ display: 'block', marginBottom: '3px', fontSize: '7px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={controls.showS1}
+              onChange={(e) => setControls({...controls, showS1: e.target.checked})}
+              style={{ marginRight: '3px', transform: 'scale(0.7)' }}
+            />
+            <span style={{ color: '#ff0000' }}>●</span> S1 (Денна)
+          </label>
+          <label style={{ display: 'block', marginBottom: '3px', fontSize: '7px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={controls.showS2}
+              onChange={(e) => setControls({...controls, showS2: e.target.checked})}
+              style={{ marginRight: '3px', transform: 'scale(0.7)' }}
+            />
+            <span style={{ color: '#0066ff' }}>●</span> S2 (Місячна)
+          </label>
+          <label style={{ display: 'block', marginBottom: '3px', fontSize: '7px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={controls.showS3}
+              onChange={(e) => setControls({...controls, showS3: e.target.checked})}
+              style={{ marginRight: '3px', transform: 'scale(0.7)' }}
+            />
+            <span style={{ color: '#00ff00' }}>●</span> S3 (Річна)
+          </label>
+        </div>
+      </div>
+      
+      <div style={{
+        position: 'absolute',
+        bottom: '10px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        color: 'white',
+        fontFamily: 'Arial, sans-serif',
+        background: 'rgba(0, 0, 0, 0.6)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        gap: '8px',
+        alignItems: 'center',
+        fontSize: '7px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ 
+            width: '12px', 
+            height: '2px', 
+            background: '#ffff00',
+            borderRadius: '1px'
+          }}></div>
+          <span><strong>S0</strong> Годинна</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ 
+            width: '12px', 
+            height: '2px', 
+            background: '#ff0000',
+            borderRadius: '1px'
+          }}></div>
+          <span><strong>S1</strong> Денна</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ 
+            width: '12px', 
+            height: '2px', 
+            background: '#0066ff',
+            borderRadius: '1px'
+          }}></div>
+          <span><strong>S2</strong> Місячна</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ 
+            width: '12px', 
+            height: '2px', 
+            background: '#00ff00',
+            borderRadius: '1px'
+          }}></div>
+          <span><strong>S3</strong> Річна</span>
+        </div>
+      </div>
+
+
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        color: 'white',
+        fontFamily: 'Arial, sans-serif',
+        background: 'rgba(0, 0, 0, 0.5)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        fontSize: '7px',
+        backdropFilter: 'blur(10px)',
+        textAlign: 'right',
+        lineHeight: '1.3'
+      }}>
+        <div><strong>{controls.numberOfYears} рік</strong></div>
+        <div>{controls.monthsPerYear} міс/р</div>
+        <div>{controls.daysPerMonth} дн/м</div>
+        <div>{controls.hoursPerDay} год/д</div>
+      </div>
+
+
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        right: '10px',
+        transform: 'translateY(-50%)',
+        color: 'white',
+        fontFamily: 'Arial, sans-serif',
+        background: 'rgba(0, 0, 0, 0.6)',
+        padding: '10px 6px',
+        borderRadius: '6px',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        alignItems: 'center'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          gap: '5px'
+        }}>
+          <div style={{ 
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            fontSize: '7px',
+            fontWeight: 'bold',
+            marginBottom: '3px',
+            color: '#ffff00'
+          }}>
+            Год/д
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="24"
+            value={controls.hoursPerDay}
+            onChange={(e) => setControls({...controls, hoursPerDay: parseInt(e.target.value)})}
+            style={{
+              writingMode: 'bt-lr',
+              WebkitAppearance: 'slider-vertical',
+              width: '4px',
+              height: '60px',
+              background: 'linear-gradient(to top, #cc9900, #ffff00)',
+              borderRadius: '2px',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          />
+          <div style={{ 
+            fontSize: '8px',
+            fontWeight: 'bold',
+            color: '#ffff00',
+            marginTop: '2px'
+          }}>
+            {controls.hoursPerDay}
+          </div>
+        </div>
+
+
+        <div style={{ 
+          width: '100%',
+          height: '1px',
+          background: 'rgba(255,255,255,0.2)'
+        }}></div>
+
+
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          gap: '5px'
+        }}>
+          <div style={{ 
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            fontSize: '7px',
+            fontWeight: 'bold',
+            marginBottom: '3px',
+            color: '#ff6666'
+          }}>
+            Дн/м
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="31"
+            value={controls.daysPerMonth}
+            onChange={(e) => setControls({...controls, daysPerMonth: parseInt(e.target.value)})}
+            style={{
+              writingMode: 'bt-lr',
+              WebkitAppearance: 'slider-vertical',
+              width: '4px',
+              height: '60px',
+              background: 'linear-gradient(to top, #ff0000, #ff6666)',
+              borderRadius: '2px',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          />
+          <div style={{ 
+            fontSize: '8px',
+            fontWeight: 'bold',
+            color: '#ff6666',
+            marginTop: '2px'
+          }}>
+            {controls.daysPerMonth}
+          </div>
+        </div>
+
+
+        <div style={{ 
+          width: '100%',
+          height: '1px',
+          background: 'rgba(255,255,255,0.2)'
+        }}></div>
+
+
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          gap: '5px'
+        }}>
+          <div style={{ 
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            fontSize: '7px',
+            fontWeight: 'bold',
+            marginBottom: '3px',
+            color: '#66aaff'
+          }}>
+            Міс/р
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="24"
+            value={controls.monthsPerYear}
+            onChange={(e) => setControls({...controls, monthsPerYear: parseInt(e.target.value)})}
+            style={{
+              writingMode: 'bt-lr',
+              WebkitAppearance: 'slider-vertical',
+              width: '4px',
+              height: '60px',
+              background: 'linear-gradient(to top, #0066ff, #66aaff)',
+              borderRadius: '2px',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          />
+          <div style={{ 
+            fontSize: '8px',
+            fontWeight: 'bold',
+            color: '#66aaff',
+            marginTop: '2px'
+          }}>
+            {controls.monthsPerYear}
+          </div>
+        </div>
+
+
+        <div style={{ 
+          width: '100%',
+          height: '1px',
+          background: 'rgba(255,255,255,0.2)'
+        }}></div>
+
+
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          gap: '5px'
+        }}>
+          <div style={{ 
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            fontSize: '7px',
+            fontWeight: 'bold',
+            marginBottom: '3px',
+            color: '#66ff66'
+          }}>
+            Років
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="10"
+            value={controls.numberOfYears}
+            onChange={(e) => setControls({...controls, numberOfYears: parseInt(e.target.value)})}
+            style={{
+              writingMode: 'bt-lr',
+              WebkitAppearance: 'slider-vertical',
+              width: '4px',
+              height: '60px',
+              background: 'linear-gradient(to top, #00ff00, #66ff66)',
+              borderRadius: '2px',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          />
+          <div style={{ 
+            fontSize: '8px',
+            fontWeight: 'bold',
+            color: '#66ff66',
+            marginTop: '2px'
+          }}>
+            {controls.numberOfYears}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+export default TimeSpiralVisualization;
