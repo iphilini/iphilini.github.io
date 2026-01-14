@@ -20,8 +20,21 @@
               "icon": "lucide-file",
               "title": "PROJECT_SUMMARY"
             }
+          },
+          {
+            "id": "4a19ddfa7f90d594",
+            "type": "leaf",
+            "state": {
+              "type": "release-notes",
+              "state": {
+                "currentVersion": "1.10.6"
+              },
+              "icon": "lucide-book-up",
+              "title": "Release Notes 1.10.6"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -160,6 +173,7 @@
   },
   "left-ribbon": {
     "hiddenItems": {
+      "bases:Create new base": false,
       "switcher:Open quick switcher": false,
       "graph:Open graph view": false,
       "canvas:Create new canvas": false,
@@ -168,7 +182,7 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "0d2adbf7e3f1c521",
+  "active": "4a19ddfa7f90d594",
   "lastOpenFiles": [
     "Enhanced Time Spiral Visualization.txt"
   ]
