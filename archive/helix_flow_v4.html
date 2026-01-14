@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HELIX FLOW v4.0 Enhanced Hierarchical</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: #0a0a1a; 
+            font-family: 'Outfit', sans-serif; 
+            display: flex; flex-direction: column; 
+        }
+        #ui-layer { flex: 0 0 auto; z-index: 10; padding: 10px; }
+        #canvas-container { flex: 1 1 auto; position: relative; background: #0a0a1a; border-top: 1px solid #1a1a2a; touch-action: none; }
+        .flip-card { background: rgba(20, 20, 30, 0.95); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+        .day-btn { width: 32px; height: 32px; border-radius: 8px; font-size: 10px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; user-select: none; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); }
+        .day-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+        .day-btn:hover { transform: scale(1.05); background: rgba(255,255,255,0.1); }
+        .input-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); padding: 10px; border-radius: 12px; font-size: 13px; outline: none; width: 100%; transition: border-color 0.2s; color: rgba(255,255,255,0.9); }
+        .input-field:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+        #modal { transition: opacity 0.2s, visibility 0.2s; }
+        #modal.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        #modal:not(.hidden) { opacity: 1; visibility: visible; }
+        .level-btn { padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .level-btn.active { background: #2563eb; color: white; }
+        .level-btn:not(.active) { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); }
+        .text-slate-900 { color: rgba(255,255,255,0.9) !important; }
+        .text-slate-400 { color: rgba(255,255,255,0.5) !important; }
+        .text-slate-300 { color: rgba(255,255,255,0.4) !important; }
+        .text-slate-700 { color: rgba(255,255,255,0.8) !important; }
+        .text-slate-500 { color: rgba(255,255,255,0.6) !important; }
+        .text-slate-600 { color: rgba(255,255,255,0.7) !important; }
+        .bg-slate-50 { background: rgba(255,255,255,0.05) !important; }
+        .bg-slate-100 { background: rgba(255,255,255,0.08) !important; }
+        .border-slate-50 { border-color: rgba(255,255,255,0.1) !important; }
+        .hover\:bg-slate-200:hover { background: rgba(255,255,255,0.12) !important; }
+        .hover\:text-blue-600:hover { color: #60a5fa !important; }
+        .bg-blue-50 { background: rgba(37, 99, 235, 0.15) !important; }
+        .text-blue-600 { color: #60a5fa !important; }
+        .hover\:border-blue-100:hover { border-color: rgba(59, 130, 246, 0.3) !important; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="flip-card p-4 w-full max-w-[360px] space-y-3 mx-auto">
+            <div class="flex justify-between items-center border-b pb-3" style="border-color: rgba(255,255,255,0.1);">
+                <div class="flex items-baseline gap-2">
+                    <h1 class="text-lg font-900 text-slate-900">HELIX<span class="text-blue-600"> FLOW</span></h1>
+                    <span id="live-date" class="text-[10px] font-bold text-slate-400 uppercase"></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="focusToday()" class="text-xl text-slate-300 hover:text-blue-600 transition-colors cursor-pointer" title="Фокус на сьогодні">◎</button>
+                    <div id="live-clock" class="text-xs font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg tabular-nums">00:00</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <label class="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full cursor-pointer text-slate-500 hover:bg-slate-200 transition-colors" title="Імпорт (↓)">
+                    <span class="text-xl">↓</span>
+                    <input type="file" class="hidden" accept=".json" onchange="importData(event)">
+                </label>
+                <button onclick="openModal()" class="flex-1 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-900/30 active:scale-95 transition-all hover:bg-blue-700">
+                    + Створити подію
+                </button>
+                <button onclick="exportData()" class="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors" title="Експорт (↑)">
+                    <span class="text-xl">↑</span>
+                </button>
+            </div>
+
+            <details class="group">
+                <summary class="list-none cursor-pointer flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    Налаштування рендеру <span class="group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="pt-3 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <p class="text-[7px] text-slate-400 mb-1 ml-1">ВІД</p>
+                            <input id="cfg-from" type="date" class="input-field py-1.5 text-xs">
+                        </div>
+                        <div>
+                            <p class="text-[7px] text-slate-400 mb-1 ml-1">ДО</p>
+                            <input id="cfg-to" type="date" class="input-field py-1.5 text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[7px] text-slate-400 mb-1 ml-1">ВИСОТА ВИТКА</p>
+                        <input id="cfg-height" type="range" min="1" max="15" step="0.5" value="6" class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                    <div>
+                        <p class="text-[7px] text-slate-400 mb-1 ml-1">РІВЕНЬ ІЄРАРХІЇ</p>
+                        <div class="flex gap-1 mt-2">
+                            <button id="level-s1" class="level-btn active flex-1" onclick="setHierarchyLevel('S1')">ДЕННА (S1)</button>
+                            <button id="level-s2" class="level-btn flex-1" onclick="setHierarchyLevel('S2')">ТИЖНЕВА (S2)</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="group border-t pt-3" open style="border-color: rgba(255,255,255,0.1);">
+                <summary class="list-none cursor-pointer flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    Мій розклад <span class="group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div id="event-list" class="mt-2 space-y-1.5 max-h-[180px] overflow-y-auto pr-1"></div>
+            </details>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+        <div class="bg-gray-900 w-full max-w-[320px] p-6 rounded-[28px] shadow-2xl space-y-5 border border-white/10">
+            <h2 class="text-lg font-900 text-slate-900">Подія</h2>
+            
+            <input id="ev-name" type="text" placeholder="Назва події" class="input-field text-base" placeholder-color="rgba(255,255,255,0.4)">
+            
+            <div class="grid grid-cols-1 gap-3">
+                <input id="ev-start" type="datetime-local" class="input-field">
+                <input id="ev-end" type="datetime-local" class="input-field">
+            </div>
+
+            <div class="flex justify-between gap-1">
+                <div class="day-btn" data-day="1">Пн</div>
+                <div class="day-btn" data-day="2">Вт</div>
+                <div class="day-btn" data-day="3">Ср</div>
+                <div class="day-btn" data-day="4">Чт</div>
+                <div class="day-btn" data-day="5">Пт</div>
+                <div class="day-btn" data-day="6">Сб</div>
+                <div class="day-btn" data-day="0">Нд</div>
+            </div>
+
+            <div class="flex items-center gap-3 pt-2">
+                <div class="relative w-12 h-12 shrink-0">
+                    <input id="ev-color" type="color" value="#2563eb" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div id="color-preview" class="w-full h-full rounded-xl border-4 border-slate-50 shadow-inner" style="background: #2563eb"></div>
+                </div>
+                <button id="pre-save-btn" class="flex-1 bg-blue-600 text-white h-12 rounded-xl font-bold uppercase tracking-wider text-xs hover:bg-blue-700 transition-colors">Зберегти</button>
+                <button id="del-btn" class="hidden w-12 h-12 bg-red-900/30 text-red-400 rounded-xl flex items-center justify-center font-bold hover:bg-red-900/50 transition-colors border border-red-800/50">✕</button>
+            </div>
+            
+            <button onclick="closeModal()" class="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest py-2 hover:text-slate-600 transition-colors">Скасувати</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== КОНФІГУРАЦІЯ =====
+        const STORAGE_KEY = 'helix_flow_v4_data';
+        const CONFIG = {
+            // S2 (Тижнева/місячна спіраль) - базовий рівень
+            S2_RADIUS: 25,              // Радіус річної спіралі
+            S2_HEIGHT_PER_YEAR: 30,     // Висота на рік
+            S2_TURNS_PER_YEAR: 1,       // Кількість обертів на рік
+            
+            // S1 (Денна спіраль) - обертається навколо S2
+            S1_RADIUS: 8,               // Радіус денної спіралі (відносно S2)
+            S1_TURNS_PER_WEEK: 7,       // Кількість обертів на тиждень (1 оборот на день)
+            S1_HEIGHT_PER_DAY: 6,       // Висота на день
+            
+            // Загальні
+            SPIRAL_STEP_MS: 600000,     // 10 хвилин для рендерингу
+            DT_FRAME: 0.0001            // Дельта для обчислення Frenet Frame (зменшено для більшої точності)
+        };
+
+        // ===== СТАН ДОДАТКУ =====
+        let events = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let editingId = null;
+        let updateTimeout = null;
+        let hierarchyLevel = 'S1'; // 'S1' = денна, 'S2' = тижнева
+        
+        // ===== ІНІЦІАЛІЗАЦІЯ ДАТ =====
+        const dFrom = new Date();
+        const dTo = new Date();
+        dTo.setDate(dFrom.getDate() + 30);
+        document.getElementById('cfg-from').value = dFrom.toISOString().split('T')[0];
+        document.getElementById('cfg-to').value = dTo.toISOString().split('T')[0];
+
+        // ===== THREE.JS СЦЕНА =====
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a1a);
+        scene.fog = new THREE.Fog(0x0a0a1a, 50, 250);
+        
+        const camera = new THREE.PerspectiveCamera(
+            40, 
+            container.clientWidth / container.clientHeight, 
+            0.1, 
+            1000
+        );
+        camera.position.set(50, 50, 50);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+        
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Освітлення
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        
+        const pointLight1 = new THREE.PointLight(0x6699ff, 1.2);
+        pointLight1.position.set(40, 40, 40);
+        scene.add(pointLight1);
+        
+        const pointLight2 = new THREE.PointLight(0xff6699, 0.8);
+        pointLight2.position.set(-40, -40, -40);
+        scene.add(pointLight2);
+
+        const s2Group = new THREE.Group(); // Тижнева спіраль (базова)
+        const s1Group = new THREE.Group(); // Денна спіраль
+        const eventGroup = new THREE.Group();
+        scene.add(s2Group, s1Group, eventGroup);
+
+        const nowDisk = new THREE.Mesh(
+            new THREE.CylinderGeometry(1.2, 1.2, 0.1, 32),
+            new THREE.MeshBasicMaterial({ color: 0x2563eb })
+        );
+        scene.add(nowDisk);
+
+        // ===== ВИПРАВЛЕНА ГЕОМЕТРІЯ З FRENET FRAMES =====
+        
+        /**
+         * Отримання позиції на S2 (тижнева/місячна спіраль)
+         * Використовує нормалізований параметр t (0..1) як в Enhanced версії
+         */
+        function getS2Position(timeMs) {
+            const base = new Date(document.getElementById('cfg-from').value).getTime();
+            const to = new Date(document.getElementById('cfg-to').value).getTime();
+            const totalDays = (to - base) / (24 * 3600 * 1000);
+            
+            if (totalDays <= 0) return new THREE.Vector3(0, 0, 0);
+            
+            // Нормалізований параметр t (0..1)
+            const t = (timeMs - base) / (to - base);
+            const days = (timeMs - base) / (24 * 3600 * 1000);
+            const years = days / 365.25;
+            
+            // Кут обертання для S2
+            const angle = years * Math.PI * 2 * CONFIG.S2_TURNS_PER_YEAR;
+            const y = years * CONFIG.S2_HEIGHT_PER_YEAR;
+            
+            return new THREE.Vector3(
+                Math.cos(angle) * CONFIG.S2_RADIUS,
+                y,
+                Math.sin(angle) * CONFIG.S2_RADIUS
+            );
+        }
+
+        /**
+         * Виправлене обчислення Frenet Frame для S2
+         * Використовує безпечну нормалізацію для уникнення проблем з паралельними векторами
+         */
+        function getS2Frame(timeMs) {
+            const base = new Date(document.getElementById('cfg-from').value).getTime();
+            const to = new Date(document.getElementById('cfg-to').value).getTime();
+            const totalMs = to - base;
+            const dt = Math.max(CONFIG.DT_FRAME * totalMs, 3600000); // Мінімум 1 година
+            
+            const curr = getS2Position(timeMs);
+            const next = getS2Position(timeMs + dt);
+            
+            const tangent = new THREE.Vector3()
+                .subVectors(next, curr);
+            
+            // Перевірка на нульовий вектор
+            if (tangent.length() < 0.001) {
+                // Якщо вектор дуже малий, використовуємо наближення
+                const days = (timeMs - base) / (24 * 3600 * 1000);
+                const years = days / 365.25;
+                const angle = years * Math.PI * 2 * CONFIG.S2_TURNS_PER_YEAR;
+                tangent.set(-Math.sin(angle), CONFIG.S2_HEIGHT_PER_YEAR / (365.25 * 24 * 3600 * 1000) * dt, Math.cos(angle));
+            }
+            
+            tangent.normalize();
+            
+            // Безпечне обчислення normal
+            const up = new THREE.Vector3(0, 1, 0);
+            let normal = new THREE.Vector3().crossVectors(tangent, up);
+            
+            // Якщо normal майже нульовий (tangent паралельний up), використовуємо альтернативний метод
+            if (normal.length() < 0.001) {
+                const radial = new THREE.Vector3(curr.x, 0, curr.z).normalize();
+                normal = new THREE.Vector3().crossVectors(tangent, radial);
+                if (normal.length() < 0.001) {
+                    normal.set(1, 0, 0); // Fallback
+                }
+            }
+            
+            normal.normalize();
+            
+            // Binormal завжди перпендикулярний normal і tangent
+            const binormal = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+            
+            return {
+                center: curr,
+                tangent: tangent,
+                normal: normal,
+                binormal: binormal
+            };
+        }
+
+        /**
+         * Виправлене отримання позиції на S1 (денна спіраль)
+         * Використовує правильний розрахунок dayProgress з обертами
+         */
+        function getS1Position(timeMs) {
+            const base = new Date(document.getElementById('cfg-from').value).getTime();
+            const days = (timeMs - base) / (24 * 3600 * 1000);
+            
+            // Позиція на S2
+            const s2Frame = getS2Frame(timeMs);
+            
+            // Правильний розрахунок кута для денної спіралі
+            // dayProgress - це кількість днів, кожен день = один оборот
+            const dayProgress = days;
+            const dayAngle = dayProgress * Math.PI * 2 * (CONFIG.S1_TURNS_PER_WEEK / 7); // Оберти на день
+            
+            // Локальні координати в системі S2 Frame (тільки X і Y для обертання)
+            const localX = Math.cos(dayAngle) * CONFIG.S1_RADIUS;
+            const localY = Math.sin(dayAngle) * CONFIG.S1_RADIUS;
+            
+            // Висота додається окремо через Y-компонент (не через tangent!)
+            const localHeight = (days % 1) * CONFIG.S1_HEIGHT_PER_DAY;
+            
+            // Трансформація до глобальної системи координат
+            // Використовуємо normal і binormal для обертання в площині
+            const offset = new THREE.Vector3()
+                .addScaledVector(s2Frame.normal, localX)
+                .addScaledVector(s2Frame.binormal, localY);
+            
+            // Додаємо висоту через tangent (напрямок руху по S2)
+            offset.addScaledVector(s2Frame.tangent, localHeight);
+            
+            return s2Frame.center.clone().add(offset);
+        }
+
+        /**
+         * Універсальна функція для отримання позиції залежно від рівня
+         */
+        function getPos(timeMs) {
+            return hierarchyLevel === 'S2' 
+                ? getS2Position(timeMs)
+                : getS1Position(timeMs);
+        }
+
+        // ===== РЕНДЕРИНГ СПІРАЛЕЙ =====
+        function buildSpiral() {
+            s2Group.clear();
+            s1Group.clear();
+            
+            const from = new Date(document.getElementById('cfg-from').value).getTime();
+            const to = new Date(document.getElementById('cfg-to').value).getTime();
+            if (to <= from) return;
+
+            const hStep = parseFloat(document.getElementById('cfg-height').value);
+            CONFIG.S1_HEIGHT_PER_DAY = hStep;
+
+            // S2 спіраль (тижнева/місячна)
+            const s2Pts = [];
+            const stepMs = 24 * 3600 * 1000; // Крок 1 день для S2
+            for (let t = from; t <= to; t += stepMs) {
+                s2Pts.push(getS2Position(t));
+            }
+            
+            const s2Line = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(s2Pts),
+                new THREE.LineBasicMaterial({
+                    color: 0x0066ff,
+                    opacity: hierarchyLevel === 'S2' ? 0.8 : 0.3,
+                    transparent: true,
+                    linewidth: 3
+                })
+            );
+            s2Group.add(s2Line);
+
+            // S1 спіраль (денна) - тільки якщо вибрано S1
+            if (hierarchyLevel === 'S1') {
+                const s1Pts = [];
+                const s1StepMs = CONFIG.SPIRAL_STEP_MS;
+                for (let t = from; t <= to; t += s1StepMs) {
+                    s1Pts.push(getS1Position(t));
+                }
+                
+                const s1Line = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(s1Pts),
+                    new THREE.LineBasicMaterial({
+                        color: 0xff0000,
+                        opacity: 0.6,
+                        transparent: true,
+                        linewidth: 2
+                    })
+                );
+                s1Group.add(s1Line);
+            }
+        }
+
+        // ===== ОНОВЛЕННЯ ПОДІЙ =====
+        function update3D() {
+            eventGroup.clear();
+            const limitMin = new Date(document.getElementById('cfg-from').value).getTime();
+            const limitMax = new Date(document.getElementById('cfg-to').value).getTime();
+
+            events.forEach(ev => {
+                const start = Math.max(ev.start, limitMin);
+                const end = Math.min(ev.end, limitMax);
+                
+                if (start < end) {
+                    const curvePts = [];
+                    const segments = 15;
+                    for (let i = 0; i <= segments; i++) {
+                        const t = start + (end - start) * (i / segments);
+                        curvePts.push(getPos(t));
+                    }
+                    
+                    const tube = new THREE.Mesh(
+                        new THREE.TubeGeometry(
+                            new THREE.CatmullRomCurve3(curvePts),
+                            20,
+                            0.5,
+                            8,
+                            false
+                        ),
+                        new THREE.MeshBasicMaterial({ color: ev.color })
+                    );
+                    tube.userData = { id: ev.id };
+                    eventGroup.add(tube);
+                }
+            });
+            renderList();
+        }
+
+        // ===== DEBOUNCED ОНОВЛЕННЯ =====
+        function debouncedUpdate() {
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(() => {
+                buildSpiral();
+                update3D();
+            }, 150);
+        }
+
+        // ===== ПЕРЕМИКАННЯ РІВНЯ ІЄРАРХІЇ =====
+        function setHierarchyLevel(level) {
+            hierarchyLevel = level;
+            
+            // Оновлення UI
+            document.querySelectorAll('.level-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`level-${level.toLowerCase()}`).classList.add('active');
+            
+            // Перебудова спіралі
+            buildSpiral();
+            update3D();
+        }
+
+        // ===== ОБРОБКА КЛІКІВ =====
+        const raycaster = new THREE.Raycaster();
+        container.addEventListener('pointerdown', (e) => {
+            const rect = container.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(eventGroup.children);
+            if (intersects.length > 0) {
+                openModal(intersects[0].object.userData.id);
+            }
+        });
+
+        // ===== РЕНДЕРИНГ СПИСКУ ПОДІЙ =====
+        function renderList() {
+            const sortedEvents = [...events].sort((a, b) => a.start - b.start);
+            const html = sortedEvents.length > 0
+                ? sortedEvents.map(ev => {
+                    const d = new Date(ev.start);
+                    return `
+                    <div onclick="openModal(${ev.id})" class="p-3 bg-slate-50 rounded-xl flex items-center justify-between cursor-pointer border border-transparent hover:border-blue-100 transition-all">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div class="w-1.5 h-4 rounded-full shrink-0" style="background:${ev.color}"></div>
+                            <span class="text-[11px] font-bold text-slate-700 truncate">${ev.name || 'Подія'}</span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="text-[8px] font-black text-blue-500 uppercase">${d.toLocaleDateString('uk-UA', { day: '2-digit', month: 'short' })}</span>
+                            <span class="text-[10px] text-slate-400 tabular-nums">${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}</span>
+                        </div>
+                    </div>`;
+                }).join('')
+                : '<p class="text-[10px] text-slate-300 text-center py-4">Список порожній</p>';
+            
+            document.getElementById('event-list').innerHTML = html;
+        }
+
+        // ===== МОДАЛЬНЕ ВІКНО =====
+        function openModal(id = null) {
+            editingId = id;
+            const ev = events.find(e => e.id === id) || {
+                name: '',
+                start: Date.now(),
+                end: Date.now() + 3600000,
+                color: '#2563eb',
+                repeat: []
+            };
+            
+            document.getElementById('ev-name').value = ev.name;
+            const toLocalISO = (ts) => {
+                const d = new Date(ts - (new Date().getTimezoneOffset() * 60000));
+                return d.toISOString().slice(0, 16);
+            };
+            document.getElementById('ev-start').value = toLocalISO(ev.start);
+            document.getElementById('ev-end').value = toLocalISO(ev.end);
+            document.getElementById('ev-color').value = ev.color;
+            document.getElementById('color-preview').style.background = ev.color;
+            document.getElementById('del-btn').classList.toggle('hidden', !id);
+            
+            document.querySelectorAll('.day-btn').forEach(btn => {
+                btn.classList.toggle('active', (ev.repeat || []).includes(parseInt(btn.dataset.day)));
+            });
+            
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+            editingId = null;
+        }
+
+        // ===== ЗБЕРЕЖЕННЯ ПОДІЇ =====
+        document.getElementById('pre-save-btn').onclick = () => {
+            const name = document.getElementById('ev-name').value.trim();
+            if (!name) {
+                alert('Введіть назву події');
+                return;
+            }
+            
+            const start = new Date(document.getElementById('ev-start').value).getTime();
+            const end = new Date(document.getElementById('ev-end').value).getTime();
+            
+            if (end <= start) {
+                alert('Кінець події повинен бути пізніше початку');
+                return;
+            }
+            
+            const data = {
+                id: editingId || Date.now(),
+                name: name,
+                start: start,
+                end: end,
+                color: document.getElementById('ev-color').value,
+                repeat: Array.from(document.querySelectorAll('.day-btn.active'))
+                    .map(b => parseInt(b.dataset.day))
+            };
+            
+            events = events.filter(e => e.id !== editingId);
+            events.push(data);
+            save();
+            closeModal();
+        };
+
+        document.getElementById('del-btn').onclick = () => {
+            if (confirm('Видалити цю подію?')) {
+                events = events.filter(e => e.id !== editingId);
+                save();
+                closeModal();
+            }
+        };
+
+        document.getElementById('ev-color').oninput = (e) => {
+            document.getElementById('color-preview').style.background = e.target.value;
+        };
+
+        // ===== ЕКСПОРТ/ІМПОРТ =====
+        function exportData() {
+            try {
+                const dataStr = JSON.stringify(events, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `helix_flow_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('Помилка експорту: ' + error.message);
+            }
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        if (confirm(`Імпортувати ${imported.length} подій? Існуючі події будуть замінені.`)) {
+                            events = imported;
+                            save();
+                        }
+                    } else {
+                        alert('Невірний формат файлу');
+                    }
+                } catch (error) {
+                    alert('Помилка імпорту: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ===== ЗБЕРЕЖЕННЯ =====
+        function save() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+                buildSpiral();
+                update3D();
+            } catch (error) {
+                alert('Помилка збереження: ' + error.message);
+            }
+        }
+
+        // ===== ФОКУС НА СЬОГОДНІ =====
+        function focusToday() {
+            const p = getPos(Date.now());
+            controls.target.copy(p);
+            camera.position.set(p.x + 35, p.y + 35, p.z + 35);
+        }
+
+        // ===== АНІМАЦІЯ =====
+        function animate() {
+            requestAnimationFrame(animate);
+            const now = new Date();
+            const pos = getPos(now.getTime());
+            
+            nowDisk.position.copy(pos);
+            
+            // Орієнтація диска
+            const nextPos = getPos(now.getTime() + 3600000);
+            nowDisk.lookAt(nextPos);
+            nowDisk.rotateX(Math.PI / 2);
+            
+            // Анімація освітлення
+            const time = Date.now() * 0.001;
+            pointLight1.position.x = Math.cos(time * 0.5) * 40;
+            pointLight1.position.z = Math.sin(time * 0.5) * 40;
+            
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('live-date').innerText = now.toLocaleDateString('uk-UA', {
+                day: 'numeric',
+                month: 'long'
+            });
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // ===== ОБРОБКА РОЗМІРУ ВІКНА =====
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // ===== ПЕРЕКЛЮЧАЧ ДНІВ =====
+        document.querySelectorAll('.day-btn').forEach(btn => {
+            btn.onclick = () => btn.classList.toggle('active');
+        });
+
+        // ===== ОБРОБКА ЗМІНИ НАЛАШТУВАНЬ =====
+        ['cfg-from', 'cfg-to', 'cfg-height'].forEach(id => {
+            document.getElementById(id).addEventListener('input', debouncedUpdate);
+        });
+
+        // ===== ІНІЦІАЛІЗАЦІЯ =====
+        buildSpiral();
+        update3D();
+        animate();
+        focusToday();
+    </script>
+</body>
+</html>
