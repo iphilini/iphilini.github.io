@@ -1,4 +1,61 @@
-https://iphilini.github.io/archive%20/Breathing%20couch.html
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Голосовий Гайд Дихання</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            color: white;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .breath-circle {
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: transform 1s ease-in-out;
+            position: relative;
+        }
+
+        .breath-circle.inhale {
+            transform: scale(1.3);
+            background: rgba(255, 255, 255, 0.35);
+        }
+
         .breath-circle.exhale {
             transform: scale(0.8);
             background: rgba(255, 255, 255, 0.15);
@@ -34,6 +91,378 @@ https://iphilini.github.io/archive%20/Breathing%20couch.html
         .button-group {
             display: flex;
             gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .start-btn {
+            background: #48bb78;
+            color: white;
+        }
+
+        .start-btn:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+        }
+
+        .stop-btn {
+            background: #f56565;
+            color: white;
+        }
+
+        .stop-btn:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+        }
+
+        .voice-btn {
+            background: #4299e1;
+            color: white;
+            position: relative;
+        }
+
+        .voice-btn:hover {
+            background: #3182ce;
+            transform: translateY(-2px);
+        }
+
+        .voice-btn.listening {
+            background: #ed8936;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 4px 15px rgba(237, 137, 54, 0.4);
+            }
+            50% {
+                box-shadow: 0 4px 30px rgba(237, 137, 54, 0.8);
+            }
+        }
+
+        .status {
+            margin-top: 20px;
+            font-size: 1rem;
+            min-height: 30px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 10px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .mic-icon {
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            backdrop-filter: blur(10px);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .breath-circle {
+                width: 250px;
+                height: 250px;
+            }
+            
+            .timer {
+                font-size: 3rem;
+            }
+            
+            button {
+                padding: 12px 24px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧘 Голосовий Гайд Дихання</h1>
+        
+        <div class="breath-circle" id="breathCircle">
+            <div class="timer" id="timer">0</div>
+            <div class="phase" id="phase">Готовність</div>
+        </div>
+
+        <div class="controls">
+            <div class="duration-display">
+                Тривалість: <span id="durationDisplay">5</span> секунд
+            </div>
+
+            <div class="button-group">
+                <button class="start-btn" id="startBtn">▶ Почати</button>
+                <button class="stop-btn" id="stopBtn">⏹ Зупинити</button>
+                <button class="voice-btn" id="voiceBtn">
+                    🎤 Голосове керування
+                </button>
+            </div>
+
+            <div class="status" id="status">Натисніть "Голосове керування" та назвіть число від 1 до 30</div>
+        </div>
+
+        <div class="instructions">
+            <strong>Інструкція:</strong><br>
+            1. Натисніть "Голосове керування" один раз для активації<br>
+            2. Мікрофон буде слухати постійно - просто кажіть числа<br>
+            3. Можна міняти темп на ходу, не зупиняючи дихання<br>
+            4. Підтримуються цифри (5, 10) та слова (п'ять, десять)<br>
+            5. Скажіть "почати" для старту або "зупинити" для паузи
+        </div>
+    </div>
+
+    <script>
+        let duration = 5;
+        let currentTime = 0;
+        let isRunning = false;
+        let interval = null;
+        let isInhaling = true;
+        let recognition = null;
+        let isListening = false;
+
+        const breathCircle = document.getElementById('breathCircle');
+        const timer = document.getElementById('timer');
+        const phase = document.getElementById('phase');
+        const durationDisplay = document.getElementById('durationDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const status = document.getElementById('status');
+
+        // Словник українських чисел
+        const ukrainianNumbers = {
+            'один': 1, 'одна': 1, 'раз': 1,
+            'два': 2, 'дві': 2,
+            'три': 3,
+            'чотири': 4,
+            'п\'ять': 5, 'пять': 5,
+            'шість': 6, 'шесть': 6,
+            'сім': 7, 'семь': 7,
+            'вісім': 8, 'восемь': 8,
+            'дев\'ять': 9, 'девять': 9, 'девʼять': 9,
+            'десять': 10,
+            'одинадцять': 11,
+            'дванадцять': 12,
+            'тринадцять': 13,
+            'чотирнадцять': 14,
+            'п\'ятнадцять': 15, 'пятнадцять': 15,
+            'шістнадцять': 16,
+            'сімнадцять': 17,
+            'вісімнадцять': 18,
+            'дев\'ятнадцять': 19, 'девятнадцять': 19,
+            'двадцять': 20,
+            'двадцять один': 21,
+            'двадцять два': 22,
+            'двадцять три': 23,
+            'двадцять чотири': 24,
+            'двадцять п\'ять': 25, 'двадцять пять': 25,
+            'двадцять шість': 26,
+            'двадцять сім': 27,
+            'двадцять вісім': 28,
+            'двадцять дев\'ять': 29, 'двадцять девять': 29,
+            'тридцять': 30
+        };
+
+        // Ініціалізація розпізнавання мови
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.lang = 'uk-UA';
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 3;
+
+                recognition.onresult = (event) => {
+                    const last = event.results.length - 1;
+                    const text = event.results[last][0].transcript.toLowerCase().trim();
+                    
+                    console.log('Розпізнано:', text);
+                    handleVoiceCommand(text);
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Помилка розпізнавання:', event.error);
+                    
+                    // Автоматично перезапускаємо при помилках, окрім критичних
+                    if (event.error !== 'not-allowed' && event.error !== 'service-not-allowed') {
+                        if (isListening) {
+                            setTimeout(() => {
+                                try {
+                                    recognition.start();
+                                } catch (e) {
+                                    console.log('Розпізнавання вже активне');
+                                }
+                            }, 1000);
+                        }
+                    } else {
+                        voiceBtn.classList.remove('listening');
+                        isListening = false;
+                        status.textContent = 'Помилка доступу до мікрофона. Надайте дозвіл';
+                    }
+                };
+
+                recognition.onend = () => {
+                    // Автоматично перезапускаємо, якщо голосове керування активне
+                    if (isListening) {
+                        try {
+                            recognition.start();
+                            console.log('Розпізнавання перезапущено');
+                        } catch (e) {
+                            console.log('Помилка перезапуску:', e);
+                        }
+                    }
+                };
+
+                return true;
+            } else {
+                alert('Ваш браузер не підтримує розпізнавання мови. Спробуйте Chrome або Edge.');
+                return false;
+            }
+        }
+
+        function parseNumber(text) {
+            // Спочатку шукаємо цифри
+            const digitMatch = text.match(/\d+/g);
+            if (digitMatch) {
+                const num = parseInt(digitMatch[0]);
+                if (num >= 1 && num <= 30) {
+                    return num;
+                }
+            }
+
+            // Шукаємо українські слова
+            for (const [word, number] of Object.entries(ukrainianNumbers)) {
+                if (text.includes(word)) {
+                    return number;
+                }
+            }
+
+            return null;
+        }
+
+        function handleVoiceCommand(text) {
+            const num = parseNumber(text);
+            
+            if (num !== null) {
+                setDuration(num);
+                status.textContent = `✓ Встановлено ${num} сек`;
+                
+                // Плавно змінюємо тривалість без зупинки
+                if (isRunning) {
+                    // Скидаємо лічильник для плавного переходу
+                    currentTime = 0;
+                }
+            } else if (text.includes('почати') || text.includes('старт') || text.includes('початок')) {
+                if (!isRunning) {
+                    startBreathing();
+                    status.textContent = `✓ Дихання ${duration} сек`;
+                }
+            } else if (text.includes('зупини') || text.includes('стоп') || text.includes('припини')) {
+                stopBreathing();
+                status.textContent = '✓ Зупинено';
+            }
+        }
+
+        function setDuration(seconds) {
+            duration = seconds;
+            durationDisplay.textContent = seconds;
+        }
+
+        function startBreathing() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            currentTime = 0;
+            isInhaling = true;
+            
+            breathCircle.classList.remove('exhale');
+            breathCircle.classList.add('inhale');
+            phase.textContent = 'Вдих';
+            
+            interval = setInterval(() => {
+                currentTime++;
+                timer.textContent = currentTime;
+                
+                if (currentTime >= duration) {
+                    currentTime = 0;
+                    isInhaling = !isInhaling;
+                    
+                    if (isInhaling) {
+                        breathCircle.classList.remove('exhale');
+                        breathCircle.classList.add('inhale');
+                        phase.textContent = 'Вдих';
+                    } else {
+                        breathCircle.classList.remove('inhale');
+                        breathCircle.classList.add('exhale');
+                        phase.textContent = 'Видих';
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopBreathing() {
+            isRunning = false;
+            clearInterval(interval);
+            currentTime = 0;
+            timer.textContent = '0';
+            phase.textContent = 'Готовність';
+            breathCircle.classList.remove('inhale', 'exhale');
+        }
+
+        startBtn.addEventListener('click', startBreathing);
+        stopBtn.addEventListener('click', stopBreathing);
+
+        voiceBtn.addEventListener('click', () => {
+            if (!recognition && !initSpeechRecognition()) {
+                return;
+            }
+
+            if (isListening) {
+                // Вимикаємо голосове керування
+                isListening = false;
+                recognition.stop();
+                voiceBtn.classList.remove('listening');
+                status.textContent = 'Голосове керування вимкнено';
+            } else {
+                // Вмикаємо голосове керування
+                isListening = true;
+                try {
+                    recognition.start();
+                    voiceBtn.classList.add('listening');
+                    status.textContent = '🎤 Слухаю постійно... Назвіть число 1-30';
+                } catch (e) {
+                    console.log('Помилка запуску:', e);
+                }
+            }
+        });
+
+        // Ініціалізація при завантаженні
+        initSpeechRecognition();
+    </script>
+</body>
+</html>
             flex-wrap: wrap;
             justify-content: center;
         }
