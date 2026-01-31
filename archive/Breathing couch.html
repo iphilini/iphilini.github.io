@@ -86,6 +86,77 @@
             padding: 15px 30px;
             border-radius: 15px;
             backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .duration-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .duration-btn:hover {
+            background: rgba(255, 255, 255, 0.5);
+            transform: scale(1.1);
+        }
+
+        .duration-btn:active {
+            transform: scale(0.95);
+        }
+
+        .duration-slider {
+            width: 100%;
+            max-width: 400px;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .duration-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+
+        .duration-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.4);
+        }
+
+        .duration-slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+
+        .duration-slider::-moz-range-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.4);
         }
 
         .status {
@@ -106,6 +177,64 @@
             display: inline-block;
             margin-left: 10px;
             animation: pulse 2s infinite;
+        }
+
+        .control-btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 12px;
+            background: #48bb78;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .control-btn:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn.paused {
+            background: #f56565;
+        }
+
+        .control-btn.paused:hover {
+            background: #e53e3e;
+        }
+
+        .voice-toggle-btn {
+            padding: 12px 30px;
+            font-size: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+            background: rgba(66, 153, 225, 0.3);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .voice-toggle-btn:hover {
+            background: rgba(66, 153, 225, 0.5);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .voice-toggle-btn.active {
+            background: rgba(72, 187, 120, 0.4);
+            border-color: #48bb78;
+        }
+
+        .voice-toggle-btn.active:hover {
+            background: rgba(72, 187, 120, 0.6);
         }
 
         @keyframes pulse {
@@ -156,18 +285,24 @@
 
         <div class="controls">
             <div class="duration-display">
-                <span id="durationDisplay">5</span> секунд
-                <span class="mic-indicator"></span>
+                <button class="duration-btn" id="decreaseBtn">-</button>
+                <span id="durationDisplay">5</span> сек
+                <button class="duration-btn" id="increaseBtn">+</button>
             </div>
+            
+            <input type="range" min="1" max="30" value="5" class="duration-slider" id="durationSlider">
 
-            <div class="status" id="status">👆 Клікніть/торкніться екрану для старту</div>
+            <button class="control-btn" id="controlBtn">▶ Старт</button>
+
+            <div class="status" id="status">Натисніть "Старт" для початку дихання</div>
         </div>
 
         <div class="instructions">
             <strong>Інструкція:</strong><br>
-            Просто назвіть число від 1 до 30 голосом<br>
-            Дихання відбувається автоматично<br>
-            Підтримуються цифри (5, 10) та слова (п'ять, десять)
+            Налаштуйте тривалість вдиху/видиху повзунком або кнопками +/-<br>
+            Натисніть "Старт" та дихайте разом з анімацією<br>
+            Дзвіночок 528 Hz звучить при кожному переході<br>
+            Можна змінювати темп прямо під час медитації
         </div>
     </div>
 
@@ -184,6 +319,10 @@
         const phase = document.getElementById('phase');
         const durationDisplay = document.getElementById('durationDisplay');
         const status = document.getElementById('status');
+        const controlBtn = document.getElementById('controlBtn');
+        const voiceToggleBtn = document.getElementById('voiceToggleBtn');
+        
+        let isVoiceActive = false;
 
         // Аудіо контекст для генерації звуків хвиль
         let audioContext = null;
@@ -263,9 +402,9 @@
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recognition = new SpeechRecognition();
                 recognition.lang = 'uk-UA';
-                recognition.continuous = true;
+                recognition.continuous = true; // Безперервний режим
                 recognition.interimResults = false;
-                recognition.maxAlternatives = 3;
+                recognition.maxAlternatives = 1;
 
                 recognition.onresult = (event) => {
                     const last = event.results.length - 1;
@@ -278,33 +417,40 @@
                 recognition.onerror = (event) => {
                     console.error('Помилка розпізнавання:', event.error);
                     
-                    // Автоматично перезапускаємо при помилках, окрім критичних
-                    if (event.error !== 'not-allowed' && event.error !== 'service-not-allowed') {
-                        setTimeout(() => {
-                            try {
-                                recognition.start();
-                            } catch (e) {
-                                // Ігноруємо помилку якщо вже запущено
-                            }
-                        }, 1000);
-                    } else {
+                    // Не перезапускаємо автоматично при помилках - це викликає звуки
+                    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
                         status.textContent = '❌ Надайте дозвіл на мікрофон і перезавантажте сторінку';
+                    } else if (event.error === 'no-speech') {
+                        // Ігноруємо - це нормально в режимі очікування
+                        console.log('Очікування голосу...');
+                    } else if (event.error === 'aborted') {
+                        // Ігноруємо - користувач міг призупинити
+                        console.log('Розпізнавання скасовано');
                     }
                 };
 
                 recognition.onend = () => {
-                    // Автоматично перезапускаємо
-                    try {
-                        recognition.start();
-                    } catch (e) {
-                        setTimeout(() => {
-                            try {
-                                recognition.start();
-                            } catch (err) {
-                                // Ігноруємо
+                    // Перезапускаємо тільки якщо це не було навмисно
+                    // Додаємо затримку для уникнення циклічних перезапусків
+                    console.log('Розпізнавання завершилось');
+                    setTimeout(() => {
+                        try {
+                            if (!recognition) return; // Перевіряємо чи не було вимкнено
+                            recognition.start();
+                            console.log('Розпізнавання перезапущено (після паузи)');
+                        } catch (e) {
+                            // Якщо вже працює - ігноруємо
+                            if (e.message.includes('already')) {
+                                console.log('Розпізнавання вже активне');
+                            } else {
+                                console.log('Не вдалося перезапустити:', e.message);
                             }
-                        }, 1000);
-                    }
+                        }
+                    }, 2000); // Збільшена затримка для стабільності
+                };
+
+                recognition.onstart = () => {
+                    console.log('Розпізнавання почалось');
                 };
 
                 return true;
@@ -372,6 +518,10 @@
             // Запускаємо дзвіночок на початку
             playTransitionBell();
             
+            // Оновлюємо кнопку
+            controlBtn.textContent = '⏸ Пауза';
+            controlBtn.classList.add('paused');
+            
             interval = setInterval(() => {
                 currentTime++;
                 timer.textContent = currentTime;
@@ -395,43 +545,82 @@
             }, 1000);
         }
 
-        // Автоматичний старт при завантаженні
-        window.addEventListener('load', () => {
-            // Чекаємо на будь-яку взаємодію користувача для ініціалізації аудіо
-            const startApp = () => {
-                // Ініціалізуємо аудіо
+        function pauseBreathing() {
+            if (!isRunning) return;
+            
+            isRunning = false;
+            clearInterval(interval);
+            
+            breathCircle.classList.remove('inhale', 'exhale');
+            phase.textContent = 'Пауза';
+            
+            // Оновлюємо кнопку
+            controlBtn.textContent = '▶ Продовжити';
+            controlBtn.classList.remove('paused');
+            status.textContent = '⏸ На паузі';
+        }
+
+        function toggleBreathing() {
+            if (isRunning) {
+                pauseBreathing();
+            } else {
+                startBreathing();
+                status.textContent = '🎤 Мікрофон активний - назвіть число від 1 до 30';
+            }
+        }
+
+        // Обробник кнопки
+        controlBtn.addEventListener('click', toggleBreathing);
+
+        // Обробник голосового керування
+        voiceToggleBtn.addEventListener('click', () => {
+            if (isVoiceActive) {
+                // Вимикаємо
+                if (recognition) {
+                    recognition.stop();
+                    recognition = null;
+                }
+                isVoiceActive = false;
+                voiceToggleBtn.textContent = '🎤 Увімкнути мікрофон';
+                voiceToggleBtn.classList.remove('active');
+                status.textContent = '🔇 Мікрофон вимкнено';
+            } else {
+                // Вмикаємо
                 if (!audioContext) {
                     initAudio();
                 }
-                
-                // Запускаємо дихання
-                if (!isRunning) {
-                    startBreathing();
-                    status.textContent = '🎤 Мікрофон активний - назвіть число від 1 до 30';
-                }
-
-                // Запускаємо голосове розпізнавання
-                if (!recognition) {
-                    if (initSpeechRecognition()) {
-                        setTimeout(() => {
-                            try {
-                                recognition.start();
-                                console.log('Голосове розпізнавання запущено');
-                            } catch (e) {
-                                console.log('Помилка запуску розпізнавання:', e);
-                            }
-                        }, 500);
+                if (initSpeechRecognition()) {
+                    try {
+                        recognition.start();
+                        isVoiceActive = true;
+                        voiceToggleBtn.textContent = '🔇 Вимкнути мікрофон';
+                        voiceToggleBtn.classList.add('active');
+                        status.textContent = '🎤 Мікрофон активний - назвіть число від 1 до 30';
+                    } catch (e) {
+                        console.log('Помилка запуску:', e);
+                        status.textContent = '❌ Не вдалося запустити мікрофон';
                     }
                 }
+            }
+        });
+
+        // Автоматичний старт при завантаженні
+        window.addEventListener('load', () => {
+            // Ініціалізуємо аудіо при першому кліку
+            const initApp = () => {
+                if (!audioContext) {
+                    initAudio();
+                }
+                status.textContent = 'Натисніть кнопку для керування мікрофоном';
                 
                 // Видаляємо слухач після першого запуску
-                document.removeEventListener('click', startApp);
-                document.removeEventListener('touchstart', startApp);
+                document.removeEventListener('click', initApp);
+                document.removeEventListener('touchstart', initApp);
             };
 
             // Додаємо слухачі для першої взаємодії
-            document.addEventListener('click', startApp);
-            document.addEventListener('touchstart', startApp);
+            document.addEventListener('click', initApp);
+            document.addEventListener('touchstart', initApp);
         });
     </script>
 </body>
