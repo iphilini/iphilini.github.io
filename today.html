@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Зворотній відлік доби</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(to right, #fff, #e0e0e0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 0.875rem;
+            margin-top: 15px;
+        }
+
+        .date-time-display {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(31, 41, 55, 0.6);
+            border-radius: 12px;
+            border: 1px solid #374151;
+        }
+
+        .current-date {
+            font-size: 1rem;
+            color: #60a5fa;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .current-clock {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.05em;
+        }
+
+        .counters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .counter-card {
+            position: relative;
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #374151;
+            overflow: hidden;
+        }
+
+        .counter-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, transparent 50%, rgba(75, 85, 99, 0.3) 100%);
+            border-radius: 20px;
+            pointer-events: none;
+        }
+
+        .counter-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        .counter-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .counter-value.blue {
+            background: linear-gradient(to right, #60a5fa, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .counter-value.purple {
+            background: linear-gradient(to right, #c084fc, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .counter-value.orange {
+            background: linear-gradient(to right, #fb923c, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .counter-label {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 2px;
+        }
+
+        .counter-max {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.65rem;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #374151;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1s linear;
+        }
+
+        .progress-fill.blue {
+            background: linear-gradient(to right, #60a5fa, #22d3ee);
+        }
+
+        .progress-fill.purple {
+            background: linear-gradient(to right, #c084fc, #ec4899);
+        }
+
+        .progress-fill.orange {
+            background: linear-gradient(to right, #fb923c, #ef4444);
+        }
+
+        .overall-percentage {
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 0;
+            text-align: center;
+        }
+
+        .overall-percentage-label {
+            color: #9ca3af;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .overall-percentage-value {
+            font-size: 1.75rem;
+            font-weight: bold;
+            background: linear-gradient(to right, #60a5fa, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .counter-value {
+                font-size: 2rem;
+            }
+
+            .counters-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .current-date {
+                font-size: 0.875rem;
+            }
+
+            .current-clock {
+                font-size: 1.5rem;
+            }
+
+            .overall-percentage-value {
+                font-size: 1.5rem;
+            }
+
+            .overall-percentage-label {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Сьогодні</h1>
+            <div class="date-time-display">
+                <div class="current-date" id="current-date">Завантаження...</div>
+                <div class="current-clock" id="current-clock">00:00:00</div>
+            </div>
+            <p class="subtitle">Зворотній відлік доби</p>
+        </div>
+
+        <div class="counters-grid">
+            <!-- Годин -->
+            <div class="counter-card">
+                <div class="counter-content">
+                    <div class="counter-value blue" id="hours">00</div>
+                    <div class="counter-label">Годин</div>
+                    <div class="counter-max">з 24</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill blue" id="hours-progress"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Хвилин -->
+            <div class="counter-card">
+                <div class="counter-content">
+                    <div class="counter-value purple" id="minutes">0000</div>
+                    <div class="counter-label">Хвилин</div>
+                    <div class="counter-max">з 1,440</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill purple" id="minutes-progress"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Секунд -->
+            <div class="counter-card">
+                <div class="counter-content">
+                    <div class="counter-value orange" id="seconds">00000</div>
+                    <div class="counter-label">Секунд</div>
+                    <div class="counter-max">з 86,400</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill orange" id="seconds-progress"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overall-percentage">
+            <div class="overall-percentage-label">Загальний відсоток доби, що залишився:</div>
+            <div class="overall-percentage-value" id="overall-percentage">0.00%</div>
+        </div>
+    </div>
+
+    <script>
+        function updateCountdown() {
+            const now = new Date();
+            const endOfDay = new Date(now);
+            endOfDay.setHours(23, 59, 59, 999);
+            
+            const diff = endOfDay - now;
+            
+            // Розрахунок значень
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor(diff / (1000 * 60));
+            const seconds = Math.floor(diff / 1000);
+            
+            // Оновлення значень
+            document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
+            document.getElementById('minutes').textContent = minutes.toString().padStart(4, '0');
+            document.getElementById('seconds').textContent = seconds.toString().padStart(5, '0');
+            
+            // Розрахунок відсотків
+            const hoursPercent = (hours / 24) * 100;
+            const minutesPercent = (minutes / 1440) * 100;
+            const secondsPercent = (seconds / 86400) * 100;
+            
+            // Оновлення прогрес-барів
+            document.getElementById('hours-progress').style.width = hoursPercent + '%';
+            document.getElementById('minutes-progress').style.width = minutesPercent + '%';
+            document.getElementById('seconds-progress').style.width = secondsPercent + '%';
+            
+            // Оновлення відсотка тільки для секунд
+            
+            // Оновлення загального відсотка
+            document.getElementById('overall-percentage').textContent = secondsPercent.toFixed(2) + '%';
+            
+            // Оновлення дати
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            document.getElementById('current-date').textContent = now.toLocaleDateString('uk-UA', options);
+            
+            // Оновлення великого годинника
+            document.getElementById('current-clock').textContent = now.toLocaleTimeString('uk-UA');
+        }
+
+        // Оновлення кожну секунду
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    </script>
+</body>
+</html>
