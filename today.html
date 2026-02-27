@@ -42,6 +42,119 @@
             margin-bottom: 15px;
         }
 
+        .timezone-selector {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .timezone-display {
+            background: rgba(59, 130, 246, 0.15);
+            border: 2px solid #3b82f6;
+            border-radius: 10px;
+            padding: 10px 20px;
+            color: #60a5fa;
+            font-size: 1.1rem;
+            font-weight: 600;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .timezone-slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 600px;
+            padding: 0 10px;
+        }
+
+        .timezone-label {
+            color: #9ca3af;
+            font-size: 0.75rem;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        #timezone-slider {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #1f2937, #3b82f6, #1f2937);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        #timezone-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            cursor: pointer;
+            border: 3px solid #1f2937;
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        #timezone-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(96, 165, 250, 0.8);
+        }
+
+        #timezone-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            cursor: pointer;
+            border: 3px solid #1f2937;
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        #timezone-slider::-moz-range-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(96, 165, 250, 0.8);
+        }
+
+        .timezone-selector label {
+            color: #9ca3af;
+            font-size: 0.875rem;
+        }
+
+        .timezone-selector select {
+            background: rgba(31, 41, 55, 0.8);
+            color: #fff;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .timezone-selector select:hover {
+            border-color: #60a5fa;
+            background: rgba(31, 41, 55, 1);
+        }
+
+        .timezone-selector select:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+
+        .timezone-selector select option {
+            background: #1f2937;
+            color: #fff;
+        }
+
         .subtitle {
             color: #9ca3af;
             font-size: 0.875rem;
@@ -203,6 +316,22 @@
                 font-size: 2rem;
             }
 
+            .timezone-slider-container {
+                max-width: 100%;
+                padding: 0 5px;
+            }
+
+            .timezone-label {
+                font-size: 0.65rem;
+                min-width: 45px;
+            }
+
+            .timezone-display {
+                font-size: 0.95rem;
+                padding: 8px 15px;
+                min-width: 180px;
+            }
+
             .counter-value {
                 font-size: 2rem;
             }
@@ -233,12 +362,34 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Сьогодні</h1>
+            <h1 id="title-today">Сьогодні</h1>
+            <div class="language-selector">
+                <select id="language-select">
+                    <option value="uk">🇺🇦 Українська</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="zh">🇨🇳 中文 (Chinese)</option>
+                    <option value="es">🇪🇸 Español</option>
+                    <option value="hi">🇮🇳 हिन्दी (Hindi)</option>
+                    <option value="ar">🇸🇦 العربية (Arabic)</option>
+                    <option value="bn">🇧🇩 বাংলা (Bengali)</option>
+                    <option value="pt">🇵🇹 Português</option>
+                    <option value="ja">🇯🇵 日本語 (Japanese)</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                </select>
+            </div>
+            <div class="timezone-selector">
+                <div class="timezone-display" id="timezone-display">UTC+2 (Київ)</div>
+                <div class="timezone-slider-container">
+                    <label class="timezone-label">UTC-12</label>
+                    <input type="range" id="timezone-slider" min="-12" max="14" step="1" value="2">
+                    <label class="timezone-label">UTC+14</label>
+                </div>
+            </div>
             <div class="date-time-display">
                 <div class="current-date" id="current-date">Завантаження...</div>
                 <div class="current-clock" id="current-clock">00:00:00</div>
             </div>
-            <p class="subtitle">Зворотній відлік доби</p>
+            <p class="subtitle" id="subtitle-countdown">Зворотній відлік доби</p>
         </div>
 
         <div class="counters-grid">
@@ -286,12 +437,100 @@
     </div>
 
     <script>
+        // Мапа UTC офсетів до назв міст/регіонів
+        const timezoneMap = {
+            '-12': { name: 'Бейкер-Айленд', iana: 'Etc/GMT+12' },
+            '-11': { name: 'Самоа', iana: 'Pacific/Pago_Pago' },
+            '-10': { name: 'Гаваї', iana: 'Pacific/Honolulu' },
+            '-9': { name: 'Аляска', iana: 'America/Anchorage' },
+            '-8': { name: 'Лос-Анджелес', iana: 'America/Los_Angeles' },
+            '-7': { name: 'Денвер', iana: 'America/Denver' },
+            '-6': { name: 'Чикаго', iana: 'America/Chicago' },
+            '-5': { name: 'Нью-Йорк', iana: 'America/New_York' },
+            '-4': { name: 'Каракас', iana: 'America/Caracas' },
+            '-3': { name: 'Буенос-Айрес', iana: 'America/Argentina/Buenos_Aires' },
+            '-2': { name: 'Атлантика', iana: 'Atlantic/South_Georgia' },
+            '-1': { name: 'Азорські острови', iana: 'Atlantic/Azores' },
+            '0': { name: 'Лондон', iana: 'Europe/London' },
+            '1': { name: 'Париж', iana: 'Europe/Paris' },
+            '2': { name: 'Київ', iana: 'Europe/Kiev' },
+            '3': { name: 'Москва', iana: 'Europe/Moscow' },
+            '4': { name: 'Дубай', iana: 'Asia/Dubai' },
+            '5': { name: 'Пакистан', iana: 'Asia/Karachi' },
+            '6': { name: 'Бангладеш', iana: 'Asia/Dhaka' },
+            '7': { name: 'Бангкок', iana: 'Asia/Bangkok' },
+            '8': { name: 'Пекін', iana: 'Asia/Shanghai' },
+            '9': { name: 'Токіо', iana: 'Asia/Tokyo' },
+            '10': { name: 'Сідней', iana: 'Australia/Sydney' },
+            '11': { name: 'Соломонові острови', iana: 'Pacific/Guadalcanal' },
+            '12': { name: 'Фіджі', iana: 'Pacific/Fiji' },
+            '13': { name: 'Тонга', iana: 'Pacific/Tongatapu' },
+            '14': { name: 'Лайн-Айлендс', iana: 'Pacific/Kiritimati' }
+        };
+
+        let currentOffset = 2; // За замовчуванням UTC+2 (Київ)
+
+        // Автовизначення часового поясу користувача
+        function detectUserTimezone() {
+            const userOffset = -new Date().getTimezoneOffset() / 60;
+            // Округлюємо до найближчого цілого
+            const roundedOffset = Math.round(userOffset);
+            
+            // Перевіряємо чи є такий офсет в нашій мапі
+            if (timezoneMap[roundedOffset.toString()]) {
+                currentOffset = roundedOffset;
+                document.getElementById('timezone-slider').value = roundedOffset;
+                updateTimezoneDisplay();
+            }
+        }
+
+        // Оновлення відображення часового поясу
+        function updateTimezoneDisplay() {
+            const offsetStr = currentOffset.toString();
+            const tz = timezoneMap[offsetStr];
+            const displayOffset = currentOffset >= 0 ? `UTC+${currentOffset}` : `UTC${currentOffset}`;
+            document.getElementById('timezone-display').textContent = `${displayOffset} (${tz.name})`;
+        }
+
+        // Обробник зміни слайдера
+        document.getElementById('timezone-slider').addEventListener('input', function(e) {
+            currentOffset = parseInt(e.target.value);
+            updateTimezoneDisplay();
+            updateCountdown();
+        });
+
         function updateCountdown() {
             const now = new Date();
-            const endOfDay = new Date(now);
+            const offsetStr = currentOffset.toString();
+            const selectedTimezone = timezoneMap[offsetStr].iana;
+            
+            // Отримуємо час у вибраному часовому поясі
+            const formatter = new Intl.DateTimeFormat('uk-UA', {
+                timeZone: selectedTimezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+
+            // Отримуємо компоненти дати/часу
+            const parts = formatter.formatToParts(now);
+            const year = parts.find(p => p.type === 'year').value;
+            const month = parts.find(p => p.type === 'month').value;
+            const day = parts.find(p => p.type === 'day').value;
+            const hour = parts.find(p => p.type === 'hour').value;
+            const minute = parts.find(p => p.type === 'minute').value;
+            const second = parts.find(p => p.type === 'second').value;
+
+            // Створюємо дату для кінця дня у вибраному часовому поясі
+            const currentTimeInZone = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+            const endOfDay = new Date(currentTimeInZone);
             endOfDay.setHours(23, 59, 59, 999);
             
-            const diff = endOfDay - now;
+            const diff = endOfDay - currentTimeInZone;
             
             // Розрахунок значень
             const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -313,25 +552,32 @@
             document.getElementById('minutes-progress').style.width = minutesPercent + '%';
             document.getElementById('seconds-progress').style.width = secondsPercent + '%';
             
-            // Оновлення відсотка тільки для секунд
-            
             // Оновлення загального відсотка
             document.getElementById('overall-percentage').textContent = secondsPercent.toFixed(2) + '%';
             
             // Оновлення дати
-            const options = { 
+            const dateOptions = { 
                 weekday: 'long', 
                 year: 'numeric', 
                 month: 'long', 
-                day: 'numeric' 
+                day: 'numeric',
+                timeZone: selectedTimezone
             };
-            document.getElementById('current-date').textContent = now.toLocaleDateString('uk-UA', options);
+            document.getElementById('current-date').textContent = now.toLocaleDateString('uk-UA', dateOptions);
             
             // Оновлення великого годинника
-            document.getElementById('current-clock').textContent = now.toLocaleTimeString('uk-UA');
+            const timeOptions = {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: selectedTimezone
+            };
+            document.getElementById('current-clock').textContent = now.toLocaleTimeString('uk-UA', timeOptions);
         }
 
-        // Оновлення кожну секунду
+        // Ініціалізація
+        detectUserTimezone();
         updateCountdown();
         setInterval(updateCountdown, 1000);
     </script>
